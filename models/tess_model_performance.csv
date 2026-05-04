@@ -1,0 +1,3 @@
+Mission,Model,Accuracy,Weighted F1,Precision,Recall
+TESS,Random Forest,1.0,1.0,1.0,1.0
+TESS,XGBoost,1.0,1.0,1.0,1.0

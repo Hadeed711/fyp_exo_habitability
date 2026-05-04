@@ -1,0 +1,3 @@
+Mission,Model,Accuracy,Weighted F1,Precision,Recall
+Kepler,Random Forest,0.9963570127504554,0.9961184838234021,0.996608253250424,0.9963570127504554
+Kepler,XGBoost,1.0,1.0,1.0,1.0

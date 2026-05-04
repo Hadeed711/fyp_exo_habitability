@@ -1,0 +1,4 @@
+Mission,Best Model,Accuracy,F1-Score,Precision,Recall
+K2,XGBoost,0.9922680412371134,0.9908021235785188,0.989460262913871,0.9922680412371134
+Kepler,XGBoost,1.0,1.0,1.0,1.0
+TESS,Random Forest,1.0,1.0,1.0,1.0

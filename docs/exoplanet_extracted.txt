@@ -1,0 +1,60 @@
+AI Exoplanet Habitability Explorer: AI-Powered Exoplanet Analysis System
+Project Vision
+To create an intelligent, interactive system that uses AI and data visualization to predict, analyze, and explore the habitability of exoplanets from NASA’s datasets — turning complex astrophysical data into an intuitive learning and discovery experience for both researchers and the public.
+Modules Overview
+🔹 Step 1: Requirement Analysis & System Design
+Define functional & non-functional requirements
+Create UML, architecture diagram, dataflow
+🔹 Step 2: Data Acquisition & Preprocessing (Module 1)
+Collect NASA datasets
+Clean, encode, engineer features
+Save processed data in PostgreSQL
+🔹 Step 3: Backend Setup & Database API (Module 3)
+Create Django REST project
+Connect PostgreSQL
+Create initial endpoints (planet list, filters)
+Prepare endpoint for AI model
+🔹 Step 4: Model Development (Module 2)
+Train ML and DL models
+Compare results
+Finalize habitability score model
+Export model (pickle or .h5)
+🔹 Step 5: AI Model Integration in Backend
+Load trained model
+Create prediction endpoint
+Test prediction speed & response
+🔹 Step 6: Frontend Basic UI (Module 4 & 5)
+React + Tailwind basic pages:
+Home
+Explore planets
+Prediction form
+3D viewport container
+🔹 Step 7: Visualization Module (Module 4)
+Add charts (Chart.js / D3.js)
+Add 3D orbit visualization (Three.js)
+Connect API to visual components
+🔹 Step 8: AI Explainability Module (Module 6)
+Integrate SHAP / LIME
+Generate feature importance graphs
+Add “AI Insight Cards” on UI
+🔹 Step 9: Authentication & User Dashboard (Module 8)
+JWT or Django Auth
+Save user simulations
+Load simulation history
+🔹 Step 10: Deployment & Optimization (Module 9)
+Deploy backend on Render/AWS
+Deploy frontend on Vercel
+Set environment variables
+Optimize loading & prediction speed
+🔹 Step 11: Testing & Evaluation
+ML evaluation: confusion matrix, ROC
+API testing (Postman)
+UI testing
+Performance testing
+🔹 Step 12: Documentation & Report (Module 10)
+Final report
+Technical diagrams
+Presentation slides
+Demo video
+System Workflow
+1. The system begins by acquiring and cleaning NASA’s exoplanet data.2. The AI/ML module processes the cleaned data and predicts habitability scores.3. The Backend API serves these predictions and raw data to the frontend.4. The Visualization module renders interactive charts and 3D orbit maps.5. The User Interaction module allows new planet input and displays instant predictions.6. The Explainability module provides transparency into AI decision-making.7. The system is deployed online for researchers and the public to explore.

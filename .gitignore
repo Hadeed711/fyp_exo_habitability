@@ -1,0 +1,28 @@
+# Virtual Environment
+.venv/
+venv/
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# Large files (optional - if models are too big)
+# models/*.pkl
+# artifacts/
