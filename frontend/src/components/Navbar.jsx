@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, User, Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { User, Menu, X, LogOut, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
@@ -112,40 +112,28 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Desktop Nav Links */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => (
-              <Link key={link.path} to={link.path} className="relative px-4 py-2 group">
-                <span className={`relative z-10 transition-colors ${
-                  isActive(link.path) ? 'text-cyan-400' : 'text-gray-300 group-hover:text-white'
-                }`}>
-                  {link.name}
-                </span>
-                {isActive(link.path) && (
-                  <motion.div
-                    layoutId="activeNav"
-                    className="absolute inset-0 bg-cyan-500/20 rounded-lg"
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-              </Link>
-            ))}
-          </div>
-
-          {/* Search Bar */}
-          <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
-            <div className="relative w-full group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-cyan-400 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search exoplanets..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-              />
+          {/* Right area: nav links + auth */}
+          <div className="hidden md:flex items-center ml-auto gap-2 lg:gap-4">
+            <div className="flex items-center space-x-1">
+              {navLinks.map((link) => (
+                <Link key={link.path} to={link.path} className="relative px-3 py-2 group">
+                  <span className={`relative z-10 transition-colors ${
+                    isActive(link.path) ? 'text-cyan-400' : 'text-gray-300 group-hover:text-white'
+                  }`}>
+                    {link.name}
+                  </span>
+                  {isActive(link.path) && (
+                    <motion.div
+                      layoutId="activeNav"
+                      className="absolute inset-0 bg-cyan-500/20 rounded-lg"
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                </Link>
+              ))}
             </div>
-          </div>
 
-          {/* User area */}
-          <div className="hidden md:flex items-center">
+            {/* User area */}
             {isLoggedIn ? (
               /* Avatar + dropdown */
               <div ref={dropdownRef} className="relative">
@@ -196,17 +184,27 @@ const Navbar = () => {
                 </AnimatePresence>
               </div>
             ) : (
-              /* Login button */
-              <Link to="/login">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-cyan-500 text-sm text-gray-300 hover:text-white transition-all"
-                >
-                  <User className="w-4 h-4" />
-                  Sign In
-                </motion.button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link to="/login">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-cyan-500 text-sm text-gray-300 hover:text-white transition-all"
+                  >
+                    <User className="w-4 h-4" />
+                    Login
+                  </motion.button>
+                </Link>
+                <Link to="/signin">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-sm text-cyan-300 hover:text-white hover:bg-cyan-500/30 transition-all"
+                  >
+                    Sign Up
+                  </motion.button>
+                </Link>
+              </div>
             )}
           </div>
 
@@ -243,17 +241,6 @@ const Navbar = () => {
                 </Link>
               ))}
 
-              <div className="pt-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search exoplanets..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-              </div>
-
               {isLoggedIn ? (
                 <div className="pt-1 space-y-2">
                   <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-800/50">
@@ -278,7 +265,17 @@ const Navbar = () => {
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-300 hover:bg-slate-800 transition-colors"
                 >
                   <User className="w-5 h-5" />
-                  <span>Sign In</span>
+                  <span>Login</span>
+                </Link>
+              )}
+
+              {!isLoggedIn && (
+                <Link
+                  to="/signin"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:text-white hover:bg-cyan-500/30 transition-colors"
+                >
+                  Sign Up
                 </Link>
               )}
             </div>

@@ -98,8 +98,19 @@ asks for detail). Use simple language — assume the user is a student, not an e
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _get_api_key():
-    """Read Groq API key from environment."""
-    return os.getenv("GROQ_API_KEY", "").strip()
+    """Read Groq API key from environment across common host naming patterns."""
+    candidate_names = [
+        "GROQ_API_KEY",
+        "GROQ_KEY",
+        "CHATBOT_GROQ_API_KEY",
+        "GROQ_TOKEN",
+    ]
+
+    for name in candidate_names:
+        value = os.getenv(name)
+        if value:
+            return value.strip().strip('"').strip("'")
+    return ""
 
 
 def _call_groq(messages, model, api_key):
@@ -154,7 +165,7 @@ def chat(request):
             "provider": "Groq",
             "setup_instructions": (
                 "Get a free API key at https://console.groq.com, "
-                "then set GROQ_API_KEY=gsk_... in your environment."
+                "then set GROQ_API_KEY=gsk_... in your backend host environment and redeploy/restart."
             ) if not configured else None,
         })
 
@@ -174,8 +185,8 @@ def chat(request):
             "message": (
                 "GROQ_API_KEY is not set.\n"
                 "1. Get a free key at https://console.groq.com\n"
-                "2. Add GROQ_API_KEY=gsk_... to your backend environment\n"
-                "3. Restart the Django server"
+                "2. Add GROQ_API_KEY=gsk_... to your backend host environment\n"
+                "3. Redeploy/restart the backend service"
             ),
             "setup_required": True,
         }, status=503)
