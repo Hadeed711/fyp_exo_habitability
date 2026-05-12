@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// API base URL - will use environment variable in production, fallback to '/api' for dev proxy
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// API base URL - will use environment variable in production, fallback to '/api/' for dev proxy
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/?$/, '/');
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -55,7 +55,7 @@ export const getPlanets = async (page = 1, pageSize = 20, filters = {}) => {
     ...filters
   });
   
-  const response = await apiClient.get(`/planets/?${params.toString()}`);
+  const response = await apiClient.get(`planets/?${params.toString()}`);
   return response.data;
 };
 
@@ -65,7 +65,7 @@ export const getPlanets = async (page = 1, pageSize = 20, filters = {}) => {
  * @returns {Promise} - Planet details
  */
 export const getPlanetById = async (id) => {
-  const response = await apiClient.get(`/planets/${id}/`);
+  const response = await apiClient.get(`planets/${id}/`);
   return response.data;
 };
 
@@ -74,7 +74,7 @@ export const getPlanetById = async (id) => {
  * @returns {Promise} - List of habitable planets
  */
 export const getHabitablePlanets = async () => {
-  const response = await apiClient.get('/planets/habitable/');
+  const response = await apiClient.get('planets/habitable/');
   return response.data;
 };
 
@@ -83,7 +83,7 @@ export const getHabitablePlanets = async () => {
  * @returns {Promise} - Statistics data
  */
 export const getPlanetStats = async () => {
-  const response = await apiClient.get('/planets/stats/');
+  const response = await apiClient.get('planets/stats/');
   return response.data;
 };
 
@@ -93,7 +93,7 @@ export const getPlanetStats = async () => {
  * @returns {Promise} - Search results
  */
 export const searchPlanets = async (query) => {
-  const response = await apiClient.get(`/planets/?q=${encodeURIComponent(query)}&page_size=10`);
+  const response = await apiClient.get(`planets/?q=${encodeURIComponent(query)}&page_size=10`);
   return response.data;
 };
 
@@ -102,7 +102,7 @@ export const searchPlanets = async (query) => {
  * @returns {Promise} - List of missions
  */
 export const getMissions = async () => {
-  const response = await apiClient.get('/missions/');
+  const response = await apiClient.get('missions/');
   return response.data;
 };
 
@@ -114,7 +114,7 @@ export const getMissions = async () => {
  * @returns {Promise} - Prediction results with habitability score
  */
 export const predictHabitability = async (planetData) => {
-  const response = await apiClient.post('/predict/', planetData);
+  const response = await apiClient.post('predict/', planetData);
   return response.data;
 };
 
@@ -124,7 +124,7 @@ export const predictHabitability = async (planetData) => {
  * @returns {Promise} - Batch prediction results
  */
 export const batchPredict = async (planetsData) => {
-  const response = await apiClient.post('/predict/batch/', { planets: planetsData });
+  const response = await apiClient.post('predict/batch/', { planets: planetsData });
   return response.data;
 };
 
@@ -133,47 +133,47 @@ export const batchPredict = async (planetsData) => {
  * @returns {Promise} - Model information
  */
 export const getModelInfo = async () => {
-  const response = await apiClient.get('/models/info/');
+  const response = await apiClient.get('models/info/');
   return response.data;
 };
 
 // ==================== User & Authentication API ====================
 
 export const registerUser = async (userData) => {
-  const response = await apiClient.post('/auth/register/', userData);
+  const response = await apiClient.post('auth/register/', userData);
   return response.data;
 };
 
 export const loginUser = async (credentials) => {
-  const response = await apiClient.post('/auth/login/', credentials);
+  const response = await apiClient.post('auth/login/', credentials);
   return response.data;
 };
 
 export const logoutUser = async (refreshToken) => {
   try {
-    await apiClient.post('/auth/logout/', { refresh: refreshToken });
+    await apiClient.post('auth/logout/', { refresh: refreshToken });
   } catch { /* ignore */ }
 };
 
 export const getCurrentUser = async () => {
-  const response = await apiClient.get('/auth/me/');
+  const response = await apiClient.get('auth/me/');
   return response.data;
 };
 
 // ==================== Saved Predictions API ====================
 
 export const getSavedPredictions = async () => {
-  const response = await apiClient.get('/auth/saved/');
+  const response = await apiClient.get('auth/saved/');
   return response.data;
 };
 
 export const savePrediction = async ({ name, inputs, outputs }) => {
-  const response = await apiClient.post('/auth/saved/', { name, inputs, outputs });
+  const response = await apiClient.post('auth/saved/', { name, inputs, outputs });
   return response.data;
 };
 
 export const deleteSavedPrediction = async (id) => {
-  const response = await apiClient.delete(`/auth/saved/${id}/`);
+  const response = await apiClient.delete(`auth/saved/${id}/`);
   return response.data;
 };
 
@@ -186,7 +186,7 @@ export const deleteSavedPrediction = async (id) => {
  */
 export const comparePlanets = async (planetIds) => {
   const ids = planetIds.join(',');
-  const response = await apiClient.get(`/compare/?ids=${ids}`);
+  const response = await apiClient.get(`compare/?ids=${ids}`);
   return response.data;
 };
 
@@ -195,7 +195,7 @@ export const comparePlanets = async (planetIds) => {
  * @returns {Promise} - Distribution analytics
  */
 export const getDistributions = async () => {
-  const response = await apiClient.get('/analytics/distributions/');
+  const response = await apiClient.get('analytics/distributions/');
   return response.data;
 };
 
@@ -204,7 +204,7 @@ export const getDistributions = async () => {
  * @returns {Promise} - Correlation data
  */
 export const getCorrelations = async () => {
-  const response = await apiClient.get('/analytics/correlations/');
+  const response = await apiClient.get('analytics/correlations/');
   return response.data;
 };
 
@@ -216,7 +216,7 @@ export const getCorrelations = async () => {
  * @returns {Promise} - Explanation with SHAP values
  */
 export const explainPrediction = async (params) => {
-  const response = await apiClient.post('/explain/', params);
+  const response = await apiClient.post('explain/', params);
   return response.data;
 };
 

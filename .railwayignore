@@ -1,0 +1,10 @@
+# Ignore large folders that are not needed by the backend server
+frontend/
+data/
+node_modules/
+venv/
+.git/
+notebooks/
+docs/
+*.csv
+*.ipynb
