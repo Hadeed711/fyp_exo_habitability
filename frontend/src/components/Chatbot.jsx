@@ -8,13 +8,15 @@ import axios from 'axios';
 
 // ─── API call ─────────────────────────────────────────────────────────────────
 
+const CHATBOT_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const sendChatMessage = async (message, history) => {
-  const { data } = await axios.post('/api/chatbot/', { message, history });
+  const { data } = await axios.post(`${CHATBOT_BASE}/chatbot/`, { message, history });
   return data;
 };
 
 const checkChatbotStatus = async () => {
-  const { data } = await axios.get('/api/chatbot/');
+  const { data } = await axios.get(`${CHATBOT_BASE}/chatbot/`);
   return data;
 };
 
@@ -222,7 +224,7 @@ const Chatbot = () => {
         || 'Could not reach the chatbot server.';
       setMessages(prev => [...prev, {
         role: 'error',
-        content: `${errMsg}\n\nMake sure the Django backend is running on port 8000.`,
+        content: `${errMsg}\n\nVerify VITE_API_URL points to your backend API and that /api/chatbot/ is reachable.`,
       }]);
     } finally {
       setLoading(false);
@@ -302,14 +304,14 @@ const Chatbot = () => {
                     <p className="text-slate-500 text-[10px] leading-none mt-0.5">
                       {status?.active_model
                         ? `via ${status.active_model}`
-                        : status?.ollama_running === false
-                          ? 'Ollama not running'
+                        : status?.api_key_configured === false
+                          ? 'API key required'
                           : 'Astrobiology Assistant'}
                     </p>
                   </div>
                   {/* Online dot */}
                   <div className={`w-1.5 h-1.5 rounded-full ml-1 ${
-                    status?.ollama_running ? 'bg-emerald-400' : 'bg-amber-400'
+                    status?.api_key_configured ? 'bg-emerald-400' : 'bg-amber-400'
                   }`} />
                 </div>
                 <div className="flex items-center gap-1">
@@ -394,9 +396,9 @@ const Chatbot = () => {
                   )}
 
                   {/* ── Input bar ─────────────────────────────────────── */}
-                  <div className="flex-shrink-0 px-3 pb-3 pt-1
-                                  border-t border-slate-800/60">
-                    <div className="flex gap-2 items-end">
+                  <div className="flex-shrink-0 px-3 pb-3 pt-2 border-t border-slate-800/60">
+                    <div className="rounded-xl border border-slate-700/60 bg-slate-900/65 p-2">
+                      <div className="flex items-center gap-2">
                       <textarea
                         ref={inputRef}
                         value={input}
@@ -405,13 +407,12 @@ const Chatbot = () => {
                         placeholder="Ask about exoplanets, habitability, ML models…"
                         rows={1}
                         disabled={loading}
-                        className="flex-1 resize-none rounded-xl px-3.5 py-2.5 text-[12.5px]
+                        className="flex-1 resize-none rounded-lg px-3 py-2.5 text-[12.5px]
                                    bg-slate-800/70 border border-slate-700/50 text-slate-200
                                    placeholder:text-slate-600 focus:outline-none
                                    focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20
-                                   disabled:opacity-50 transition-colors leading-relaxed
-                                   scrollbar-thin scrollbar-thumb-slate-600"
-                        style={{ maxHeight: 88 }}
+                                   disabled:opacity-50 transition-colors leading-relaxed"
+                        style={{ maxHeight: 88, overflowY: 'hidden' }}
                         onInput={e => {
                           e.target.style.height = 'auto';
                           e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
@@ -420,7 +421,7 @@ const Chatbot = () => {
                       <button
                         onClick={() => handleSend()}
                         disabled={loading || !input.trim()}
-                        className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center
+                        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
                                    bg-gradient-to-br from-violet-600 to-cyan-600
                                    disabled:opacity-40 disabled:cursor-not-allowed
                                    hover:shadow-[0_0_14px_rgba(139,92,246,0.5)] transition-all"
@@ -430,9 +431,10 @@ const Chatbot = () => {
                           : <Send size={14} className="text-white" />
                         }
                       </button>
+                      </div>
                     </div>
                     <p className="text-center text-[10px] text-slate-700 mt-1.5">
-                      Powered by Ollama · Local · Free · No API key
+                      Powered by Groq API · Cloud inference
                     </p>
                   </div>
                 </>
