@@ -92,9 +92,13 @@ const Login = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-              className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30"
+              className="w-14 h-14 flex items-center justify-center"
             >
-              <div className="w-7 h-7 rounded-full bg-white" />
+              <img
+                src="/logo.svg"
+                alt="ExoHab Logo"
+                className="w-full h-full drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+              />
             </motion.div>
           </div>
 

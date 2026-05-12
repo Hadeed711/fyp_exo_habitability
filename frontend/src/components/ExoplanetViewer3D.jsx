@@ -747,8 +747,9 @@ const PlanetInfoPanel = ({ planet, onClose }) => {
       exit={{    opacity: 0, x: 28 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       style={{
-        position: 'absolute', top: 16, right: 16,
-        width: 234,
+        position: 'absolute', top: 12, right: 12,
+        width: 'min(92vw, 234px)',
+        maxWidth: 'calc(100vw - 24px)',
         background: 'rgba(9,18,36,0.96)',
         border: `1px solid ${colors.main}3e`,
         borderRadius: 14, padding: '15px 16px',
@@ -1023,13 +1024,13 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
             style={{ background: '#010b1a' }}
           >
             {/* ── Header bar ──────────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/50 bg-slate-950/92 backdrop-blur-lg flex-shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 px-3 py-3 border-b border-slate-800/50 bg-slate-950/92 backdrop-blur-lg flex-shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
                 <div
                   className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"
                   style={{ boxShadow: '0 0 7px #22d3ee' }}
                 />
-                <span className="text-white font-semibold text-sm tracking-wide">
+                  <span className="min-w-0 truncate text-white font-semibold text-sm tracking-wide">
                   Exoplanet 3D Orbital Viewer
                 </span>
                 {loading && (
@@ -1037,44 +1038,44 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                 {/* Labels toggle */}
                 <button
                   onClick={() => setShowLabels(v => !v)}
                   title={showLabels ? 'Hide planet labels' : 'Show planet labels'}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                     ${showLabels
                       ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
                       : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}
                 >
                   {showLabels ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  Labels
+                    <span className="hidden sm:inline">Labels</span>
                 </button>
 
                 {/* Habitable Zone toggle */}
                 <button
                   onClick={() => setShowHabitableZone(v => !v)}
                   title={showHabitableZone ? 'Hide habitable zone' : 'Show habitable zone'}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                  className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                     ${showHabitableZone
                       ? 'bg-green-500/15 text-green-400 border-green-500/30'
                       : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}
                 >
                   <div className="w-3 h-3 rounded-full border-2 border-current" />
-                  HZ Ring
+                  <span className="hidden sm:inline">HZ Ring</span>
                 </button>
 
                 {/* Camera mode toggle */}
                 <button
                   onClick={toggleCameraMode}
                   title="Toggle top-down orbital view"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                  className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                     ${cameraMode === 'top'
                       ? 'bg-violet-500/15 text-violet-400 border-violet-500/30'
                       : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}
                 >
                   <Layers className="w-3 h-3" />
-                  {cameraMode === 'top' ? 'Perspective' : 'Top View'}
+                  <span className="hidden sm:inline">{cameraMode === 'top' ? 'Perspective' : 'Top View'}</span>
                 </button>
 
                 {/* Surface zoom */}
@@ -1082,44 +1083,44 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
                   <button
                     onClick={zoomToPlanetSurface}
                     title="Zoom to planet surface"
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                       ${cameraMode === 'surface'
                         ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
                         : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}
                   >
                     <Globe className="w-3 h-3" />
-                    Surface
+                    <span className="hidden sm:inline">Surface</span>
                   </button>
                 )}
 
                 {/* Auto-rotate */}
                 <button
                   onClick={() => setAutoRotate(v => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                  className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                     ${autoRotate
                       ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
                       : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}
                 >
                   {autoRotate ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  {autoRotate ? 'Pause' : 'Rotate'}
+                  <span className="hidden sm:inline">{autoRotate ? 'Pause' : 'Rotate'}</span>
                 </button>
 
                 {/* Reset camera */}
                 <button
                   onClick={handleResetCamera}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                             bg-slate-800/80 text-slate-400 border border-slate-700 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 py-1.5 text-[10px] font-medium text-slate-400 transition-colors hover:text-white sm:px-3 sm:text-xs"
                 >
-                  <RotateCcw className="w-3 h-3" /> Reset
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Reset</span>
                 </button>
 
                 {/* Close */}
                 <button
                   onClick={handleClose}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                             bg-slate-800/80 text-slate-400 border border-slate-700 hover:text-red-400 transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 py-1.5 text-[10px] font-medium text-slate-400 transition-colors hover:text-red-400 sm:px-3 sm:text-xs"
                 >
-                  <X className="w-3 h-3" /> Close
+                  <X className="w-3 h-3" />
+                  <span className="hidden sm:inline">Close</span>
                 </button>
               </div>
             </div>
@@ -1177,7 +1178,7 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
 
               {/* Interaction hint */}
               <div style={{
-                position: 'absolute', bottom: 16, right: 16,
+                position: 'absolute', bottom: 12, right: 12,
                 color: '#1e3a5f', fontSize: 11, textAlign: 'right',
                 lineHeight: 1.7, pointerEvents: 'none',
               }}>
@@ -1186,7 +1187,7 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
               </div>
 
               {/* Top-center label */}
-              <div style={{
+              <div className="hidden sm:block" style={{
                 position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
                 color: '#1e3a5f', fontSize: 11,
                 textTransform: 'uppercase', letterSpacing: 3,

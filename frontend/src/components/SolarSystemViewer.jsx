@@ -992,7 +992,9 @@ const SolarInfoPanel = ({ obj, onClose }) => {
       exit={{ opacity: 0, x: 28 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       style={{
-        position: 'absolute', top: 16, right: 16, width: 240,
+        position: 'absolute', top: 12, right: 12,
+        width: 'min(92vw, 240px)',
+        maxWidth: 'calc(100vw - 24px)',
         background: 'rgba(9,18,36,0.97)',
         border: `1px solid ${accentColor}38`,
         borderRadius: 14, padding: '15px 16px',
@@ -1126,49 +1128,47 @@ const SolarSystemViewer = ({ isOpen, onClose }) => {
           style={{ background: '#010810' }}
         >
           {/* ── Header ──────────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/50 bg-slate-950/92 backdrop-blur-lg flex-shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 px-3 py-3 border-b border-slate-800/50 bg-slate-950/92 backdrop-blur-lg flex-shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse"
                 style={{ boxShadow: '0 0 8px #fb923c' }} />
-              <span className="text-white font-semibold text-sm tracking-wide">
+              <span className="min-w-0 truncate text-white font-semibold text-sm tracking-wide">
                 Solar System — Interactive 3D Atlas
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
               <button onClick={() => setShowArtemis(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                   ${showArtemis ? 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40 shadow-[0_0_10px_#00e5ff30]'
                                 : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
-                <Rocket className="w-3 h-3" /> Artemis 2
+                <Rocket className="w-3 h-3" /> <span className="hidden sm:inline">Artemis 2</span>
               </button>
               <button onClick={() => setShowLabels(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                   ${showLabels ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
                                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
-                {showLabels ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />} Labels
+                {showLabels ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />} <span className="hidden sm:inline">Labels</span>
               </button>
               <button onClick={() => setCameraMode(m => m === 'top' ? 'perspective' : 'top')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                   ${cameraMode === 'top' ? 'bg-violet-500/15 text-violet-400 border-violet-500/30'
                                         : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
-                <Layers className="w-3 h-3" /> {cameraMode === 'top' ? 'Perspective' : 'Top View'}
+                <Layers className="w-3 h-3" /> <span className="hidden sm:inline">{cameraMode === 'top' ? 'Perspective' : 'Top View'}</span>
               </button>
               <button onClick={() => setPaused(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs
                   ${!paused ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
                             : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
                 {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                {paused ? 'Resume' : 'Pause'}
+                <span className="hidden sm:inline">{paused ? 'Resume' : 'Pause'}</span>
               </button>
               <button onClick={handleReset}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                           bg-slate-800/80 text-slate-400 border border-slate-700 hover:text-white transition-colors">
-                <RotateCcw className="w-3 h-3" /> Reset
+                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 py-1.5 text-[10px] font-medium text-slate-400 transition-colors hover:text-white sm:px-3 sm:text-xs">
+                <RotateCcw className="w-3 h-3" /> <span className="hidden sm:inline">Reset</span>
               </button>
               <button onClick={handleClose}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                           bg-slate-800/80 text-slate-400 border border-slate-700 hover:text-red-400 transition-colors">
-                <X className="w-3 h-3" /> Close
+                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 py-1.5 text-[10px] font-medium text-slate-400 transition-colors hover:text-red-400 sm:px-3 sm:text-xs">
+                <X className="w-3 h-3" /> <span className="hidden sm:inline">Close</span>
               </button>
             </div>
           </div>
@@ -1201,7 +1201,7 @@ const SolarSystemViewer = ({ isOpen, onClose }) => {
 
             {/* Hint */}
             <div style={{
-              position: 'absolute', bottom: 16, right: 16,
+              position: 'absolute', bottom: 12, right: 12,
               color: '#1e3a5f', fontSize: 11, textAlign: 'right',
               lineHeight: 1.7, pointerEvents: 'none',
             }}>
@@ -1214,7 +1214,7 @@ const SolarSystemViewer = ({ isOpen, onClose }) => {
             </div>
 
             {/* Centre label */}
-            <div style={{
+            <div className="hidden sm:block" style={{
               position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
               color: '#1e3a5f', fontSize: 11, textTransform: 'uppercase', letterSpacing: 3,
               pointerEvents: 'none',
