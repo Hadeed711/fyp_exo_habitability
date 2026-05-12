@@ -51,7 +51,7 @@ class HabitabilityScorer:
             Path to directory containing scalers and encoders
         """
         # Get the project root directory (FYP folder)
-        # backend/api/habitability_scorer.py -> go up 2 levels to FYP
+        # backend/api/habitability_scorer.py -> go up 3 levels to reach the project root from api/
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent
         
