@@ -54,8 +54,7 @@ if not SECRET_KEY:
 
 # SECURITY WARNING: don't run with debug turned on in production!
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1', '.up.railway.app', 'exoplanet-production-d030.up.railway.app'])
-if not DEBUG and not os.getenv('ALLOWED_HOSTS'):
-    raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DEBUG is False.')
+# Using fallbacks if ALLOWED_HOSTS env var is missing.
 
 
 # Application definition
@@ -245,8 +244,7 @@ CORS_ALLOWED_ORIGINS = _env_list(
         'https://exoplanet-frontend-seven.vercel.app',
     ],
 )
-if not DEBUG and not os.getenv('CORS_ALLOWED_ORIGINS'):
-    raise ImproperlyConfigured('CORS_ALLOWED_ORIGINS must be set when DEBUG is False.')
+# Using fallbacks if CORS_ALLOWED_ORIGINS env var is missing.
 
 # Keep this disabled so the API only trusts explicit origins.
 CORS_ALLOW_ALL_ORIGINS = False
