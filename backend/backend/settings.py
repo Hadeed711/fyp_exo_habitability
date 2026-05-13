@@ -142,7 +142,14 @@ elif DEBUG:
         }
     }
 else:
-    raise ImproperlyConfigured('DATABASE_URL or DB_PASSWORD must be set when DEBUG is False.')
+    # Fallback to SQLite if no production database is provided.
+    # WARNING: Data will be lost on container restart if using SQLite on Railway.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
