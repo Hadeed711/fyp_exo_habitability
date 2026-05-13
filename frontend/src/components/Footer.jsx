@@ -70,18 +70,18 @@ const Footer = () => {
               variants={itemVariants}
               className="lg:col-span-1"
             >
-            <Link to="/" className="flex items-center space-x-3 mb-4 group w-fit">
-              <motion.div
-                whileHover={{ rotate: 5, scale: 1.1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                className="w-10 h-10 flex items-center justify-center"
-              >
-                <img src="/logo.svg" alt="ExoHab Logo" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-              </motion.div>
-              <span className="text-xl font-black text-white group-hover:text-cyan-400 transition-colors">
-                ExoHab<span className="text-cyan-500">Explorer</span>
-              </span>
-            </Link>
+              <Link to="/" className="flex items-center space-x-3 mb-4 group w-fit">
+                <motion.div
+                  whileHover={{ rotate: 5, scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                  className="w-10 h-10 flex items-center justify-center"
+                >
+                  <img src="/logo.svg" alt="ExoHab Logo" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                </motion.div>
+                <span className="text-xl font-black text-white group-hover:text-cyan-400 transition-colors">
+                  ExoHab<span className="text-cyan-500">Explorer</span>
+                </span>
+              </Link>
               <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
                 AI-powered platform for exploring and predicting exoplanet habitability.
                 Built on Kepler, K2, and TESS mission data with machine learning models.
@@ -233,7 +233,7 @@ const Footer = () => {
               <Link to="/about" className="hover:text-slate-400 transition-colors">About</Link>
               <Link to="/learn" className="hover:text-slate-400 transition-colors">Concepts</Link>
               <a
-                href="https://github.com"
+                href="https://github.com/Hadeed711/fyp_exo_habitability"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-slate-400 transition-colors flex items-center gap-1"
