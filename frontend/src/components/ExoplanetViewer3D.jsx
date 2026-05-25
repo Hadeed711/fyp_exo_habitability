@@ -906,12 +906,28 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
     if (isOpen) fetchPlanets();
   }, [isOpen, fetchPlanets]);
 
-  const handleOpen  = () => { setIsOpen(true); setSelectedPlanet(null); };
+  // Push a history entry when modal opens so browser back closes it instead of navigating away
+  const handleOpen = () => {
+    setIsOpen(true);
+    setSelectedPlanet(null);
+    window.history.pushState({ modal3d: true }, '', window.location.href);
+  };
+
   const handleClose = () => {
     setIsOpen(false);
     setSelectedPlanet(null);
     document.body.style.cursor = 'default';
   };
+
+  // Intercept browser back button: close modal instead of leaving /explore
+  useEffect(() => {
+    const onPop = () => {
+      if (isOpen) handleClose();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleControlsReady = useCallback((controls) => {
     controlsRef.current = controls;

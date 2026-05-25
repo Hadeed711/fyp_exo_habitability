@@ -281,6 +281,7 @@ CSRF_TRUSTED_ORIGINS = _env_list(
         'http://localhost:5173',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:5173',
+        'https://exoplanet-production-d030.up.railway.app',
         'https://exoplanet-frontend-seven.vercel.app',
     ],
 )

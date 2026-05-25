@@ -33,6 +33,7 @@ const PredictionPanel = () => {
   const [error,              setError]              = useState(null);
   const [activeSlider,       setActiveSlider]       = useState(null);
   const [tooltip,            setTooltip]            = useState(null);
+  const [editingKey,         setEditingKey]         = useState(null);
 
   // ── Save prediction state ────────────────────────────────────────────────
   const [saveName,        setSaveName]        = useState('');
@@ -392,22 +393,46 @@ const PredictionPanel = () => {
                     </AnimatePresence>
                   </div>
 
-                  {/* Value display — bold & animated when sliding */}
-                  <motion.span
-                    key={`${key}-${displayValue}`}
-                    animate={isActive ? {
-                      scale: [1, 1.15, 1],
-                      color: ['#67e8f9', '#22d3ee', '#67e8f9'],
-                    } : { scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                    className={`font-mono text-sm transition-all duration-200 ${
-                      isActive
-                        ? 'text-base font-bold text-cyan-300'
-                        : 'text-cyan-400'
-                    }`}
-                  >
-                    {displayValue} {config.unit}
-                  </motion.span>
+                  {/* Value display — click to edit inline */}
+                  {editingKey === key ? (
+                    <input
+                      type="number"
+                      autoFocus
+                      defaultValue={displayValue}
+                      min={config.min}
+                      max={config.max}
+                      step={config.step}
+                      className="font-mono text-sm text-cyan-300 bg-transparent border-b border-cyan-400 outline-none w-24 text-right"
+                      onBlur={(e) => {
+                        const raw = parseFloat(e.target.value);
+                        const clamped = isNaN(raw) ? params[key] : Math.min(Math.max(raw, config.min), config.max);
+                        handleParamChange(key, clamped);
+                        setEditingKey(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setEditingKey(null);
+                      }}
+                    />
+                  ) : (
+                    <motion.span
+                      key={`${key}-${displayValue}`}
+                      animate={isActive ? {
+                        scale: [1, 1.15, 1],
+                        color: ['#67e8f9', '#22d3ee', '#67e8f9'],
+                      } : { scale: 1 }}
+                      transition={{ duration: 0.3 }}
+                      onClick={() => setEditingKey(key)}
+                      title="Click to edit"
+                      className={`font-mono text-sm transition-all duration-200 cursor-pointer hover:underline hover:text-cyan-300 ${
+                        isActive
+                          ? 'text-base font-bold text-cyan-300'
+                          : 'text-cyan-400'
+                      }`}
+                    >
+                      {displayValue} {config.unit}
+                    </motion.span>
+                  )}
                 </div>
 
                 {/* Slider */}

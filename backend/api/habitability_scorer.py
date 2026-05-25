@@ -532,10 +532,13 @@ class HabitabilityScorer:
         else:
             in_hz = 0.5   # Unknown insolation - neutral
 
-        # Physics score: geometric mean of similarities * HZ presence * stellar type
+        # Physics score: geometric mean of similarities * HZ presence * orbital proximity * stellar type
+        # hz_proximity (from orbital distance derived via Kepler's 3rd law from pl_orbper) provides
+        # a 30% modulator so orbital period meaningfully affects the score.
         physics_score = (
             (temp_sim * radius_sim * insol_sim) ** (1.0 / 3.0)
             * (0.4 + 0.6 * in_hz)
+            * (0.7 + 0.3 * hz_proximity)
             * stellar_factor
         )
         physics_score = max(0.0, min(1.0, physics_score))

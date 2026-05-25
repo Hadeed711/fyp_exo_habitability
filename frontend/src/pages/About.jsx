@@ -201,7 +201,7 @@ const About = () => {
               {/* mini stat row */}
               <motion.div {...fadeUp(0.3)} className="flex flex-wrap justify-center lg:justify-start gap-4 mb-4">
                 {[
-                  { v: '9,614', l: 'Exoplanets' },
+                  { v: '8,245', l: 'Exoplanets' },
                   { v: '100%', l: 'Peak Accuracy' },
                   { v: '3',    l: 'ML Models' },
                 ].map(({ v, l }) => (
@@ -259,7 +259,7 @@ const About = () => {
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
               Three mission-specific classification models were trained — XGBoost for the K2 and Kepler
               missions, and Random Forest for TESS. Each model was independently trained and evaluated
-              on its respective mission dataset (9,614 exoplanets total across all three missions).
+              on its respective mission dataset (8,245 exoplanets total across all three missions).
             </p>
 
             {/* model table */}
@@ -294,7 +294,29 @@ const About = () => {
               <StatCard label="Best Accuracy"     value="100%"  sub="Kepler & TESS"   delay={0.12} accent="green" />
               <StatCard label="Min. Accuracy"     value="99.2%" sub="K2 Mission"      delay={0.14} accent="cyan"  />
               <StatCard label="Best F1 Score"     value="1.000" sub="2 missions"      delay={0.16} accent="green" />
-              <StatCard label="Total Exoplanets"  value="9,614" sub="across 3 missions" delay={0.18} accent="cyan" />
+              <StatCard label="Total Exoplanets"  value="8,245" sub="across 3 missions" delay={0.18} accent="cyan" />
+            </div>
+
+            {/* Missing data explanation */}
+            <div className="mt-8 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+              <div className="flex items-start gap-3">
+                <span className="text-amber-400 text-lg mt-0.5">⚠</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-300 mb-2">Why do planets with missing data have habitability classes?</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    During data preprocessing, the habitability scorer ran on <span className="text-white">all 8,245 planets</span>, including those
+                    with incomplete measurements. When a parameter such as equilibrium temperature, insolation flux, or planet
+                    radius is absent from the NASA archive, the scorer substitutes a <span className="text-white">neutral placeholder value</span>{' '}
+                    (e.g., temperature → 0 K, radius → 0 R⊕). Because these defaults produce a near-zero physics score, planets
+                    with little or no data almost always resolve to <span className="text-amber-300 font-medium">NON_HABITABLE</span>. A smaller
+                    fraction land in <span className="text-cyan-300 font-medium">HABITABILITY_ZONE</span> or{' '}
+                    <span className="text-green-300 font-medium">POTENTIALLY_HABITABLE</span> only when enough real
+                    measurements are present to push their score above the threshold. These planets are <span className="text-white">not removed</span>{' '}
+                    from the dataset — they represent real discovered exoplanets whose physical characterisation is still ongoing,
+                    and their classification is a best-estimate given currently available data.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </motion.section>
@@ -398,7 +420,7 @@ const About = () => {
                 As a concrete example, <span className="text-white font-medium">Venus</span> would score as potentially habitable using
                 transit data alone (similar radius and orbit to Earth), yet its surface temperature is 465 °C due to a runaway greenhouse
                 atmosphere that no transit survey can measure. JWST atmospheric observations currently exist for
-                only a handful of exoplanets — our 9,614-planet dataset has zero atmospheric composition data.
+                only a handful of exoplanets — our 8,245-planet dataset has zero atmospheric composition data.
               </p>
             </div>
           </div>

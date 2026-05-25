@@ -201,13 +201,11 @@ const Footer = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-12 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl 
-                       grid grid-cols-2 md:grid-cols-4 gap-4 text-center"
+            className="mt-12 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl
+                       grid grid-cols-2 gap-4 text-center"
           >
             {[
               { value: '3', label: 'Missions', color: 'text-cyan-400' },
-              { value: '10K+', label: 'Exoplanets', color: 'text-purple-400' },
-              { value: '3', label: 'ML Models', color: 'text-blue-400' },
               { value: 'Real-time', label: 'Predictions', color: 'text-green-400' },
             ].map((stat) => (
               <div key={stat.label}>

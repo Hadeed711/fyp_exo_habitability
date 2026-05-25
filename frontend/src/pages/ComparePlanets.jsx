@@ -1,10 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, Plus, Search, Loader2 } from 'lucide-react';
+import { ArrowLeft, X, Plus, Search, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { searchPlanets } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Radar, Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+);
 
 /**
  * ComparePlanets Page
@@ -18,7 +43,26 @@ const ComparePlanets = () => {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchResults, setSearchResults]         = useState([]);
   const [searchLoading, setSearchLoading]         = useState(false);
+  const [suggestedPlanets, setSuggestedPlanets]   = useState([]);
   const debounceTimer = useRef(null);
+
+  // Fetch two well-known real exoplanets as suggestions on mount
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const [r1, r2] = await Promise.all([
+          searchPlanets('Kepler-452 b'),
+          searchPlanets('Kepler-22 b'),
+        ]);
+        const p1 = (r1.results || [])[0];
+        const p2 = (r2.results || [])[0];
+        setSuggestedPlanets([p1, p2].filter(Boolean));
+      } catch {
+        // suggestions are optional — silently ignore errors
+      }
+    };
+    fetchSuggestions();
+  }, []);
 
   // Debounced real-API search
   useEffect(() => {
@@ -118,6 +162,73 @@ const ComparePlanets = () => {
     if (value === null || value === undefined) return 'N/A';
     const num = (value * row.multiplier).toFixed(row.decimals);
     return row.unit ? `${num} ${row.unit}` : num;
+  };
+
+  // Per-planet colors for charts (up to 4 planets)
+  const PLANET_COLORS = [
+    { border: 'rgba(34,211,238,1)',  bg: 'rgba(34,211,238,0.15)' },
+    { border: 'rgba(168,85,247,1)', bg: 'rgba(168,85,247,0.15)' },
+    { border: 'rgba(251,146,60,1)', bg: 'rgba(251,146,60,0.15)' },
+    { border: 'rgba(74,222,128,1)', bg: 'rgba(74,222,128,0.15)' },
+  ];
+
+  // Radar chart: normalize each metric to 0-1 scale for comparison
+  const radarData = selectedPlanets.length > 1 ? (() => {
+    const labels = ['Radius', 'Temperature', 'Insolation', 'Orbital Period', 'Stellar Temp', 'Stellar Mass'];
+    const maxes  = [15, 1500, 100, 90000, 7500, 3];
+    const keys   = ['pl_rade', 'pl_eqt', 'pl_insol', 'pl_orbper', 'st_teff', 'st_mass'];
+    return {
+      labels,
+      datasets: selectedPlanets.map((p, i) => ({
+        label: p.planet_name,
+        data: keys.map((k, ki) => {
+          const v = p[k];
+          return v != null ? Math.min(v / maxes[ki], 1) : 0;
+        }),
+        borderColor: PLANET_COLORS[i].border,
+        backgroundColor: PLANET_COLORS[i].bg,
+        pointBackgroundColor: PLANET_COLORS[i].border,
+        borderWidth: 2,
+      })),
+    };
+  })() : null;
+
+  const radarOptions = {
+    scales: { r: { ticks: { color: '#94a3b8', backdropColor: 'transparent', stepSize: 0.2 }, grid: { color: 'rgba(148,163,184,0.2)' }, angleLines: { color: 'rgba(148,163,184,0.2)' }, pointLabels: { color: '#cbd5e1', font: { size: 11 } }, min: 0, max: 1 } },
+    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 12 } } } },
+    responsive: true,
+    maintainAspectRatio: true,
+  };
+
+  // Bar chart: key physical metrics grouped by planet
+  const barData = selectedPlanets.length > 1 ? (() => {
+    const barMetrics = [
+      { label: 'Radius (R⊕)', key: 'pl_rade' },
+      { label: 'Insolation (S⊕)', key: 'pl_insol' },
+      { label: 'Stellar Mass (M☉)', key: 'st_mass' },
+      { label: 'Stellar Radius (R☉)', key: 'st_rad' },
+    ];
+    return {
+      labels: barMetrics.map(m => m.label),
+      datasets: selectedPlanets.map((p, i) => ({
+        label: p.planet_name,
+        data: barMetrics.map(m => p[m.key] ?? 0),
+        backgroundColor: PLANET_COLORS[i].bg.replace('0.15', '0.6'),
+        borderColor: PLANET_COLORS[i].border,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      })),
+    };
+  })() : null;
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 12 } } } },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+      y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+    },
   };
 
   return (
@@ -252,6 +363,37 @@ const ComparePlanets = () => {
             )}
           </div>
 
+          {/* Suggested planets */}
+          {suggestedPlanets.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-700/60">
+              <p className="text-xs text-slate-500 mb-3 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Try these well-known exoplanets
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {suggestedPlanets
+                  .filter(p => !selectedPlanets.find(sp => sp.id === p.id))
+                  .map(planet => (
+                    <button
+                      key={planet.id}
+                      onClick={() => handleAddPlanet(planet)}
+                      disabled={selectedPlanets.length >= 4}
+                      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed
+                                 border-cyan-600/40 rounded-full text-slate-300 hover:text-white
+                                 hover:border-cyan-500/70 hover:bg-cyan-500/10 transition-all
+                                 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span className="text-sm">🪐</span>
+                      <span className="font-medium text-sm">{planet.planet_name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${getMissionColor(getMissionDisplayName(planet))}`}>
+                        {getMissionDisplayName(planet)}
+                      </span>
+                      <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {selectedPlanets.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -317,47 +459,79 @@ const ComparePlanets = () => {
               ))}
             </div>
 
-            {/* Comparison Parameters */}
-            <div className="divide-y divide-slate-700">
-              {parameterRows.map((row, idx) => (
-                <div 
-                  key={idx}
-                  className={`grid grid-cols-${selectedPlanets.length + 1} gap-4 p-4 
-                              hover:bg-slate-700/30 transition-colors`}
-                >
-                  {/* Parameter Label */}
-                  <div className="font-medium text-slate-300">
-                    {row.label}
-                  </div>
-
-                  {/* Values for each planet */}
-                  {selectedPlanets.map(planet => {
-                    const value = planet[row.key];
-                    const isHighest = selectedPlanets.every(p => 
-                      (p[row.key] || 0) <= (value || 0)
-                    );
-                    
-                    return (
-                      <div 
-                        key={planet.id}
-                        className={`text-center ${isHighest && value ? 'text-cyan-400 font-semibold' : 'text-slate-400'}`}
-                      >
-                        {formatValue(value, row)}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+            {/* Comparison Parameters Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 bg-slate-900/60">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-40">
+                      Parameter
+                    </th>
+                    {selectedPlanets.map(planet => (
+                      <th key={planet.id} className="text-center px-5 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        {planet.planet_name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parameterRows.map((row, idx) => (
+                    <tr
+                      key={idx}
+                      className={`border-b border-slate-700/50 transition-colors hover:bg-slate-700/20 ${idx % 2 === 0 ? 'bg-slate-800/20' : ''}`}
+                    >
+                      <td className="px-5 py-3 font-medium text-slate-300 whitespace-nowrap">
+                        {row.label}
+                        {row.unit ? <span className="ml-1 text-xs text-slate-500">({row.unit})</span> : null}
+                      </td>
+                      {selectedPlanets.map(planet => {
+                        const value = planet[row.key];
+                        const isHighest = selectedPlanets.length > 1 && value != null && selectedPlanets.every(p =>
+                          (p[row.key] ?? -Infinity) <= value
+                        );
+                        return (
+                          <td
+                            key={planet.id}
+                            className={`px-5 py-3 text-center ${isHighest ? 'text-cyan-400 font-semibold' : 'text-slate-400'}`}
+                          >
+                            {value != null ? (value * row.multiplier).toFixed(row.decimals) : <span className="text-slate-600 italic">N/A</span>}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {/* Earth Comparison Note */}
-            <div className="p-4 bg-slate-900/50 text-center text-sm text-slate-400 border-t border-slate-700">
-              📊 Highest values in each row are highlighted in cyan
-              <br />
-              <span className="text-xs">
-                R⊕ = Earth Radii | S⊕ = Solar Flux (Earth=1) | AU = Astronomical Unit |
-                R☉ = Solar Radii | M☉ = Solar Mass
-              </span>
+            {/* Note */}
+            <div className="p-4 bg-slate-900/50 text-center text-xs text-slate-500 border-t border-slate-700">
+              Highest values in each row highlighted in cyan &nbsp;·&nbsp;
+              R⊕ = Earth Radii &nbsp;·&nbsp; S⊕ = Solar Flux (Earth=1) &nbsp;·&nbsp; AU = Astronomical Unit &nbsp;·&nbsp; R☉ = Solar Radii &nbsp;·&nbsp; M☉ = Solar Mass
+            </div>
+          </motion.div>
+        )}
+
+        {/* Charts section — only shown when 2+ planets selected */}
+        {selectedPlanets.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            {/* Radar Chart */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <h3 className="text-base font-semibold text-white mb-4">Multi-Parameter Comparison</h3>
+              <p className="text-xs text-slate-500 mb-4">All values normalised 0–1 relative to dataset maximums</p>
+              <Radar data={radarData} options={radarOptions} />
+            </div>
+
+            {/* Bar Chart */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <h3 className="text-base font-semibold text-white mb-4">Physical Properties</h3>
+              <p className="text-xs text-slate-500 mb-4">Radius, insolation, and stellar characteristics per planet</p>
+              <Bar data={barData} options={barOptions} />
             </div>
           </motion.div>
         )}

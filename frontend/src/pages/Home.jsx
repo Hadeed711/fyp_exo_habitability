@@ -398,36 +398,44 @@ const OrbitingPlanet = ({ delay, duration, radius, size, color, planetY, startAn
 // Feature Card Component
 const FeatureCard = ({ feature, index }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      whileHover={{ y: -5 }}
-      className="group relative overflow-hidden rounded-xl bg-slate-900/50 border border-slate-800 p-8 hover:border-cyan-500/50 transition-all duration-300"
-    >
-      {/* Glow Effect on Hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-blue-500/0 group-hover:from-cyan-500/10 group-hover:to-blue-500/10 transition-all duration-300"></div>
+    <Link to={feature.link} className="block">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5, delay: index * 0.1 }}
+        whileHover={{ y: -5 }}
+        className="group relative overflow-hidden rounded-xl bg-slate-900/50 border border-slate-800 p-8 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer"
+      >
+        {/* Glow Effect on Hover */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-blue-500/0 group-hover:from-cyan-500/10 group-hover:to-blue-500/10 transition-all duration-300"></div>
 
-      <div className="relative z-10">
-        {/* Icon */}
-        <motion.div
-          whileHover={{ rotate: 360, scale: 1.1 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-cyan-500/10 text-cyan-400 mb-4"
-        >
-          <feature.icon className="w-7 h-7" />
-        </motion.div>
+        <div className="relative z-10">
+          {/* Icon */}
+          <motion.div
+            whileHover={{ rotate: 360, scale: 1.1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-cyan-500/10 text-cyan-400 mb-4"
+          >
+            <feature.icon className="w-7 h-7" />
+          </motion.div>
 
-        {/* Title */}
-        <h3 className="text-xl font-semibold text-white mb-3">
-          {feature.title}
-        </h3>
+          {/* Title */}
+          <h3 className="text-xl font-semibold text-white mb-3">
+            {feature.title}
+          </h3>
 
-        {/* Description */}
-        <p className="text-gray-400 leading-relaxed">{feature.description}</p>
-      </div>
-    </motion.div>
+          {/* Description */}
+          <p className="text-gray-400 leading-relaxed">{feature.description}</p>
+
+          {/* Explore link hint */}
+          <div className="mt-4 flex items-center gap-1 text-cyan-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <span>Explore</span>
+            <ArrowRight className="w-4 h-4" />
+          </div>
+        </div>
+      </motion.div>
+    </Link>
   );
 };
 
@@ -438,18 +446,21 @@ const features = [
     title: 'Interactive Orbit Maps',
     description:
       'Visualize exoplanets in their orbital systems with real-time 3D rendering and interactive exploration.',
+    link: '/explore',
   },
   {
     icon: Brain,
     title: 'AI Habitability Scoring',
     description:
       'Advanced machine learning models predict habitability based on multiple planetary parameters.',
+    link: '/explore',
   },
   {
     icon: GitCompare,
     title: 'Planet Comparison',
     description:
       'Compare up to 4 exoplanets side-by-side with detailed metrics and visualizations.',
+    link: '/compare',
   },
 ];
 

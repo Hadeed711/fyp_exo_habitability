@@ -406,14 +406,14 @@ export const mockPlanets = [
 
 // Mock statistics
 export const mockStats = {
-  total_planets: 9614,
+  total_planets: 8245,
   potentially_habitable: 342,
   habitability_zone: 1523,
-  non_habitable: 7749,
+  non_habitable: 6380,
   missions: {
-    kepler: 4234,
-    k2: 2845,
-    tess: 2535
+    kepler: 2742,
+    k2: 1937,
+    tess: 3566
   },
   discovery_years: {
     recent_year: 2024,
