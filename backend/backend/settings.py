@@ -53,9 +53,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG is False.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1'])
-if not DEBUG and not os.getenv('ALLOWED_HOSTS'):
-    raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DEBUG is False.')
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1', '.up.railway.app', 'exoplanet-production-d030.up.railway.app'])
+# Using fallbacks if ALLOWED_HOSTS env var is missing.
 
 
 # Application definition
@@ -143,7 +142,14 @@ elif DEBUG:
         }
     }
 else:
-    raise ImproperlyConfigured('DATABASE_URL or DB_PASSWORD must be set when DEBUG is False.')
+    # Fallback to SQLite if no production database is provided.
+    # WARNING: Data will be lost on container restart if using SQLite on Railway.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -245,8 +251,7 @@ CORS_ALLOWED_ORIGINS = _env_list(
         'https://exoplanet-frontend-seven.vercel.app',
     ],
 )
-if not DEBUG and not os.getenv('CORS_ALLOWED_ORIGINS'):
-    raise ImproperlyConfigured('CORS_ALLOWED_ORIGINS must be set when DEBUG is False.')
+# Using fallbacks if CORS_ALLOWED_ORIGINS env var is missing.
 
 # Keep this disabled so the API only trusts explicit origins.
 CORS_ALLOW_ALL_ORIGINS = False
@@ -283,6 +288,8 @@ CSRF_TRUSTED_ORIGINS = _env_list(
         'http://127.0.0.1:5173',
         'https://exoplanet-production-d030.up.railway.app',
         'https://exoplanet-frontend-seven.vercel.app',
+        'https://exoplanet-production-d030.up.railway.app',
+        'https://*.up.railway.app',
     ],
 )
 

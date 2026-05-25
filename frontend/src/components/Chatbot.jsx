@@ -4,19 +4,17 @@ import {
   X, Send, Loader2, Bot, User,
   Minimize2, Maximize2, AlertCircle,
 } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../services/api';
 
 // ─── API call ─────────────────────────────────────────────────────────────────
 
-const CHATBOT_BASE = import.meta.env.VITE_API_URL || '/api';
-
 const sendChatMessage = async (message, history) => {
-  const { data } = await axios.post(`${CHATBOT_BASE}/chatbot/`, { message, history });
+  const { data } = await apiClient.post('chatbot/', { message, history });
   return data;
 };
 
 const checkChatbotStatus = async () => {
-  const { data } = await axios.get(`${CHATBOT_BASE}/chatbot/`);
+  const { data } = await apiClient.get('chatbot/');
   return data;
 };
 
