@@ -1001,7 +1001,7 @@ const ExoplanetViewer3D = ({ filters = {}, searchQuery = '' }) => {
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => setSolarOpen(true)}
+            onClick={() => { setSolarOpen(true); window.history.pushState({ modalSolar: true }, '', window.location.href); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs text-white"
             style={{
               background: 'linear-gradient(135deg, #78350f, #d97706)',

@@ -1116,6 +1116,13 @@ const SolarSystemViewer = ({ isOpen, onClose }) => {
     document.body.style.cursor = 'default';
   }, [onClose]);
 
+  // Intercept browser back button: close modal instead of leaving the page
+  useEffect(() => {
+    const onPop = () => { if (isOpen) handleClose(); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [isOpen, handleClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
