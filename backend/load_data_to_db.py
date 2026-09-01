@@ -82,6 +82,46 @@ def create_missions():
     return created_count
 
 
+# Per-mission planet-name resolution.
+# ------------------------------------------------------------------
+# The three processed datasets do NOT share a name column:
+#   K2     → 'pl_name'      e.g. "BD+20 594 b"
+#   Kepler → 'kepler_name'  e.g. "Kepler-227 b"  (falls back to 'kepoi_name', e.g. "K00752.01")
+#   TESS   → 'toi'          e.g. 1001.01         (rendered as "TOI-1001.01")
+# Listing them in priority order keeps every mission on its real catalogue
+# designation instead of a positional placeholder.
+NAME_COLUMNS = {
+    'K2':     ['pl_name', 'k2_name', 'epic_candname'],
+    'Kepler': ['kepler_name', 'kepoi_name'],
+    'TESS':   ['toi', 'tid'],
+}
+
+# Catalogue prefix applied to bare numeric identifiers (TESS TOI / TIC numbers).
+NAME_PREFIX = {'toi': 'TOI-', 'tid': 'TIC '}
+
+
+def resolve_planet_name(row, mission_name, idx):
+    """
+    Resolve a human-readable catalogue name for one CSV row.
+
+    Falls back to '<Mission>_planet_<idx>' only when the row carries no usable
+    identifier at all, so a malformed row can never collide with a real name.
+    """
+    for column in NAME_COLUMNS.get(mission_name, []):
+        value = row.get(column)
+        if value is None or pd.isna(value):
+            continue
+
+        name = str(value).strip()
+        if not name or name.lower() == 'nan':
+            continue
+
+        prefix = NAME_PREFIX.get(column, '')
+        return f'{prefix}{name}' if prefix else name
+
+    return f'{mission_name}_planet_{idx}'
+
+
 def load_planet_data(mission_name, csv_file):
     """Load exoplanet data for a specific mission."""
     if not csv_file.exists():
@@ -129,7 +169,7 @@ def load_planet_data(mission_name, csv_file):
     
     for idx, row in df.iterrows():
         # Check if planet already exists
-        planet_name = row.get('pl_name', f'{mission_name}_planet_{idx}')
+        planet_name = resolve_planet_name(row, mission_name, idx)
         
         if Exoplanet.objects.filter(planet_name=planet_name).exists():
             skipped_count += 1

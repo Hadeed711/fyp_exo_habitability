@@ -8,25 +8,40 @@
 
 ---
 
-## 📍 CURRENT STATUS: Core Build Verified, Pre-Deployment Phase
+## 📍 CURRENT STATUS: Deployed — Phases 1–9 Complete
 
-### ✅ **COMPLETED** (Phase 1-3):
-- ✅ **Phase 1**: Data preprocessing - 9,614 exoplanets processed from K2, Kepler, TESS
-- ✅ **Phase 2**: ML Models - 6 models trained, ensemble created, habitability scorer complete
-- ✅ **Phase 3**: Backend API - **Core endpoints complete**
+### ✅ **COMPLETED**:
+- ✅ **Phase 1**: Data preprocessing — 9,614 rows processed from K2, Kepler, TESS
+- ✅ **Phase 2**: ML Models — 6 models trained, ensemble created, habitability scorer complete
+- ✅ **Phase 3**: Backend API — all endpoints complete
   - ✅ Django REST Framework setup
-  - ✅ PostgreSQL database with 9,614 exoplanets loaded
-  - ✅ Planets API: List, filter, search, stats endpoints working
-  - ✅ Predictions API: AI prediction endpoint working
-  - ✅ User models: Prediction history & simulation history
+  - ✅ Neon PostgreSQL with **8,245 unique exoplanets** loaded
+    (9,614 CSV rows de-duplicate on planet name: K2 568 + Kepler 2,742 + TESS 4,935)
+  - ✅ Planets API: list, filter, search, compare, stats
+  - ✅ Predictions API: single, batch, explain, model info, health
   - ✅ All models and scalers integrated
-- ✅ **Frontend Setup**: React + Vite + Tailwind CSS configured
-- ✅ **Home Page**: Complete with hero, features, animations
-- ✅ **Frontend Core Pages**: Explore, Planet Detail, Compare, About implemented
-- ✅ **AI Explainability**: `/api/explain/` implemented with SHAP + LIME + fallback support
+- ✅ **Phase 4**: Frontend — Home, Explore, Planet Detail, Compare, Learn, Upload, About,
+  Login, Sign-in, 404
+- ✅ **Phase 5**: 3D Visualization — orbital viewer, Solar System viewer, habitable-zone ring
+- ✅ **Phase 6**: AI Explainability — `/api/explain/` with SHAP + LIME + physics fallback
+- ✅ **Phase 7**: Authentication — JWT register/login/me/logout, saved predictions per user
+- ✅ **Phase 8**: Testing — pytest suite green (12 tests), manual checklist in TESTING_GUIDE.md
+- ✅ **Phase 9**: Deployment — backend on Railway, frontend on Vercel, database on Neon
+- ✅ **ARIA chatbot** — Groq Cloud (Llama 3.3 70B), available on every page
 
 ### ⬅️ **CURRENT FOCUS**:
-**Phase 7 + Phase 9**: Implement login/signup + save prediction history, then deploy backend/frontend
+**Phase 10**: Documentation and the FYP report. Code documentation is done —
+every README listed in Step 10.1 now exists. Remaining: the written report,
+presentation slides and demo video.
+
+### 🔧 Known issues / deferred
+
+| Item | Detail |
+|---|---|
+| Bundle size | One ~1.87 MB JS chunk. Route-level `React.lazy` around the 3D viewers is the fix if it matters |
+| `/api/auth/logout/` | Cannot revoke tokens — `token_blacklist` is not in `INSTALLED_APPS`. Returns 200 regardless |
+| Minority-class ML metrics | Headline accuracy is weighted; per-class F1 for POTENTIALLY_HABITABLE is weak on K2/TESS. Mitigated by the 90% physics weighting — see `models/README.md` |
+| `backend/api/` app | Not in `INSTALLED_APPS`; exists only as the import path for `habitability_scorer.py`. Its `views.py`/`urls.py` are superseded by `predictions/` |
 
 ---
 
@@ -159,7 +174,7 @@ GET  /api/health/                      // API health check
 <summary><b>Phase 3: Backend API Development (Module 3)</b> ✅ 98% COMPLETE</summary>
 
 - ✅ Django REST Framework setup
-- ✅ PostgreSQL database with 9,614 exoplanets
+- ✅ Neon PostgreSQL with 8,245 unique exoplanets (from 9,614 processed rows)
 - ✅ `planets` app: List, filter, search, stats endpoints
 - ✅ `predictions` app: AI prediction with ML models integrated
 - ✅ Models: Mission, Exoplanet, PredictionHistory, SimulationHistory
@@ -1078,7 +1093,7 @@ netlify deploy --prod --dir=dist
 
 **Already Set Up:**
 - ✅ PostgreSQL database exists
-- ✅ 9,614 exoplanets loaded
+- ✅ 8,245 unique exoplanets loaded (from 9,614 processed rows)
 - ✅ Missions and models configured
 
 **For Production:**
@@ -1120,9 +1135,14 @@ VITE_API_URL=https://exoplanet-backend.onrender.com/api
 
 **README Files:**
 - `README.md` - Main project overview ✅
-- `frontend/README.md` - Frontend setup & structure
-- `backend/README.md` - Backend API documentation
-- `models/README.md` - ML models documentation
+- `frontend/README.md` - Frontend setup & structure ✅
+- `frontend/src/pages/README.md` - Route inventory & conventions ✅
+- `frontend/src/components/README.md` - Component inventory & conventions ✅
+- `backend/README.md` - Backend internals & operational runbook ✅
+- `models/README.md` - ML models, metrics caveats, regeneration ✅
+- `TEST_MODELS_README.md` - Model evaluation harness guide ✅
+- `PROJECT_UNDERSTANDING_GUIDE.md` - Deep system explanation ✅
+- `TESTING_GUIDE.md` - Manual feature test checklist ✅
 
 ### Step 10.2: FYP Final Report
 

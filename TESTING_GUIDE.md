@@ -3,7 +3,9 @@
 ## Prerequisites
 - ✅ Backend server running on `http://localhost:8000`
 - ✅ Frontend dev server running on `http://localhost:3000`
-- ✅ Database populated with 9,614 exoplanets
+- ✅ Database populated with 8,245 exoplanets
+  (9,614 processed CSV rows de-duplicate to 8,245 unique planets:
+   K2 568 + Kepler 2,742 + TESS 4,935)
 
 ---
 
@@ -104,11 +106,15 @@ Navigate to: **http://localhost:3000**
 
 ### ✅ Compare Page (/compare)
 - [ ] Page loads
-- [ ] Coming soon message (or implemented UI)
+- [ ] Default comparison planets load
+- [ ] Search adds a planet to the comparison (max 4)
+- [ ] Comparison table shows all parameters
+- [ ] Removing a planet updates the table
 
 ### ✅ About Page (/about)
 - [ ] Page loads
-- [ ] Coming soon placeholder visible
+- [ ] 3D hero cube renders
+- [ ] Project, dataset and supervisor details visible
 
 ### ✅ Navigation & UX
 **Navbar:**
@@ -172,7 +178,7 @@ Navigate to: **http://localhost:3000**
 ### Issue: "Service unavailable" or "ML models not loaded"
 **Fix:**
 1. Check backend console for errors
-2. Verify model files exist in `artifacts/` folder
+2. Verify trained models exist in `models/` and preprocessors in `artifacts/`
 3. Restart backend server
 
 ### Issue: Search/Filter not working
@@ -214,9 +220,9 @@ Navigate to: **http://localhost:3000**
 - Should return within 1-2 seconds
 - Score between 0-1 (displayed as percentage)
 - Classification matches score:
-  - ≥0.7 = POTENTIALLY_HABITABLE (Green)
-  - 0.4-0.7 = HABITABILITY_ZONE (Yellow)
-  - <0.4 = NON_HABITABLE (Red)
+  - ≥0.66 = POTENTIALLY_HABITABLE (Green)
+  - 0.30-0.65 = HABITABILITY_ZONE (Yellow)
+  - <0.30 = NON_HABITABLE (Red)
 
 ### Batch Upload
 - Processing time increases with planet count
@@ -288,7 +294,8 @@ Navigate to: **http://localhost:3000**
 
 **Still stuck?**
 - Read the error message carefully
-- Check [PHASE_4_COMPLETION_SUMMARY.md](./PHASE_4_COMPLETION_SUMMARY.md)
+- Check [README.md](./README.md) for setup and the full API reference
+- Check [PROJECT_UNDERSTANDING_GUIDE.md](./PROJECT_UNDERSTANDING_GUIDE.md) for how scoring works
 - Verify backend database has data
 - Check all dependencies installed
 

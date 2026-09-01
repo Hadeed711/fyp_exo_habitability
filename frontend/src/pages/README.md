@@ -1,75 +1,59 @@
 # Pages Directory
 
-This directory contains all main page components for the AI Exoplanet Habitability Explorer.
+Route-level components. Every route is registered in
+[`src/App.jsx`](../App.jsx) inside a single `<Routes>` block, wrapped by
+`AuthProvider`, with `ScrollToTop` and the ARIA `Chatbot` mounted globally
+outside the route switch.
 
-## Pages to Create (from PROJECT_ROADMAP.md - Step 4.2):
+## Routes
 
-### 1. **Home.jsx**
-- Hero section with project description
-- Statistics cards (total planets, habitable found)
-- Call-to-action buttons
-- Featured planets carousel
-- Futuristic design with animations
+| Path | Component | Purpose |
+|---|---|---|
+| `/` | `Home.jsx` | Landing page — hero, live dataset stats, feature cards |
+| `/explore` | `ExplorePlanets.jsx` | Main page — filters, 3D viewer, planet grid, prediction panel |
+| `/planets/:id` | `PlanetDetail.jsx` | Full planet profile with an ML prediction for that planet |
+| `/compare` | `ComparePlanets.jsx` | Side-by-side comparison of up to 4 planets |
+| `/learn` | `Concepts.jsx` | Habitability concepts — HZ, ESI, transit method, stellar types |
+| `/upload` | `Upload.jsx` | CSV batch prediction — template download, validation, results export |
+| `/about` | `About.jsx` | Project, dataset and academic context; 3D hero cube |
+| `/login` | `login.jsx` | Login form |
+| `/signin` | `signin.jsx` | Registration, including avatar upload |
+| `*` | `NotFound.jsx` | 404 fallback |
 
-### 2. **ExplorePlanets.jsx**
-- Grid/List view of all exoplanets
-- Search and filter functionality
-- Pagination
-- Sort by habitability score, distance, temperature
-- Planet cards with key details
+`ComingSoon.jsx` is a generic placeholder component. It is not currently bound
+to any route — keep it for stubbing a new page.
 
-### 3. **PlanetDetail.jsx**
-- Detailed planet profile
-- All parameters displayed
-- Habitability breakdown
-- Comparison with Earth
-- 3D visualization preview
+> Note the filename casing: `login.jsx` and `signin.jsx` are lowercase while
+> every other page is PascalCase. Imports in `App.jsx` match the files exactly.
+> Renaming them needs a case-sensitive-safe two-step `git mv` — Windows and
+> Linux disagree about case, and Vercel builds on Linux.
 
-### 4. **PredictPage.jsx**
-- Input form for custom planet parameters
-- Real-time validation
-- Submit button
-- Results display with habitability score
-- Visual indicators (gauges, progress bars)
-- Feature importance chart
+## Conventions
 
-### 5. **Dashboard.jsx**
-- Saved simulations list
-- Prediction history
-- Export functionality
-- Statistics of user activity
+- **Data fetching** — always through `services/api.js`. No page calls `axios`
+  or `fetch` directly.
+- **State** — local `useState` only. There is no Redux, Zustand or reducer
+  layer; `AuthContext` is the single shared context and carries auth only.
+- **Auth** — read `useAuth()` from `context/AuthContext`. The JWT lives in
+  `localStorage` and an axios interceptor attaches it; pages never touch the
+  token directly.
+- **Styling** — Tailwind utility classes inline. Shared tokens (the `slate.950`
+  colour, `pulse-slow` / `spin-slow` animations) are in
+  [`tailwind.config.js`](../../tailwind.config.js).
+- **Animation** — Framer Motion for page and element transitions.
+- **Loading and errors** — every async call needs an explicit loading state and
+  a rendered error branch. The API can be cold-starting or entirely offline.
 
-### 6. **Login.jsx**
-- Login form with JWT
-- Registration form
-- Password validation
-- Error handling
+## Page notes
 
-### 7. **Register.jsx** (optional separate component)
-- User registration form
-- Email and password validation
+**`ExplorePlanets.jsx`** is deliberately thin (~110 lines). It owns filter and
+search state and composes `FiltersPanel`, `SearchBar`, `PlanetGrid`,
+`ExoplanetViewer3D` and `PredictionPanel`. Add feature logic to the child
+component, not to this page.
 
-### 8. **VisualizePage.jsx**
-- 3D visualization showcase
-- Interactive planet comparison
-- Orbital mechanics demonstration
+**`PlanetDetail.jsx`** fetches one planet and runs a live prediction against its
+stored parameters, so the score shown reflects the current scorer rather than
+the `habitability_class` frozen in the database at load time.
 
-## Current Status
-
-- [x] Directory created
-- [ ] Pages implementation (Step 4.2)
-
-## Routing Structure
-
-```jsx
-<Routes>
-  <Route path="/" element={<Home />} />
-  <Route path="/explore" element={<ExplorePlanets />} />
-  <Route path="/planet/:id" element={<PlanetDetail />} />
-  <Route path="/predict" element={<PredictPage />} />
-  <Route path="/visualize" element={<VisualizePage />} />
-  <Route path="/dashboard" element={<Dashboard />} />
-  <Route path="/login" element={<Login />} />
-  <Route path="/register" element={<Register />} />
-</Routes>
-```
+**`Upload.jsx`** validates client-side before POSTing — CSV only, under 5 MB, at
+least one data row — and caps a batch at 100 planets to match the backend limit.

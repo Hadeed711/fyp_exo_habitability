@@ -74,8 +74,8 @@ INSTALLED_APPS = [
     # Project apps (Step 3.1 structure)
     "planets",        # Planet data management
     "predictions",    # AI prediction endpoints
-    "users",          # Authentication (future Step 7)
-    "chatbot",        # Ollama LLM chatbot
+    "users",          # Auth, profiles, saved predictions
+    "chatbot",        # ARIA chatbot (Groq Cloud API)
 ]
 
 MIDDLEWARE = [

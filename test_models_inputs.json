@@ -1,6 +1,6 @@
 {
   "description": "Simple test file - Change the 8 parameter values below to test different planets",
-  "instructions": "1. Edit the values below, 2. Run: python supervisor_predictor.py",
+  "instructions": "1. Edit the values below, 2. Run: python test_models.py",
   
   "test_planets": [
     {

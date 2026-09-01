@@ -41,7 +41,7 @@ We do **not** claim to determine if life actually exists on these planets. We pr
 | Deliverable | Status | Detail |
 |-------------|--------|--------|
 | 3 trained ML models | ✅ Complete | K2 XGBoost (99.2%), Kepler XGBoost (100%), TESS RF (100%) |
-| REST API backend | ✅ Complete | Django + DRF, **Neon DB (PostgreSQL)**, 9,614 planets loaded |
+| REST API backend | ✅ Complete | Django + DRF, **Neon DB (PostgreSQL)**, 8,245 planets loaded |
 | Interactive frontend | ✅ Complete | React 19, 3D viewer, prediction panel, explore page |
 | AI explainability | ✅ Complete | SHAP + LIME + fallback for every prediction |
 | Solar system 3D viewer | ✅ Complete | 8 planets, moons, asteroid belt, Kuiper belt, NEOs |
@@ -60,8 +60,6 @@ FYP/
 ├── TESTING_GUIDE.md                How to test all features
 ├── TEST_MODELS_README.md           ML model evaluation guide
 ├── batch_prediction_test_sample.csv Sample data for batch API testing
-│
-├── habitability_scorer.py          Root-level standalone scorer (legacy, kept for notebooks)
 │
 ├── data/
 │   ├── raw/
@@ -99,6 +97,9 @@ FYP/
 │
 ├── backend/
 │   ├── manage.py
+│   ├── load_data_to_db.py                Loads processed CSVs into the database
+│   ├── backfill_planet_names.py          Repairs placeholder planet names
+│   ├── .env.example                      Backend environment template
 │   ├── .env                             DB + API key config (Neon DB credentials, GROQ_API_KEY)
 │   ├── backend/                         Django project settings
 │   │   ├── settings.py                  Uses Neon DB (PostgreSQL) when DB_PASSWORD set; SQLite fallback
@@ -422,7 +423,7 @@ The 99.2%–100% accuracy is **real but requires context**:
    - The physical properties of habitable planets (right radius, right temperature, right flux) cluster very distinctly in feature space.
    - The ESI similarity features and HZ flags we engineered encode the exact boundary that defines habitability — so the model is learning patterns that are **physically defined** and therefore separable.
 
-4. **Legitimate concern:** The training set has only 28 potentially habitable planets (out of 9,614). With so few positive examples, the model may be overly conservative in real deployment. We mitigate this with the continuous composite score (see Section 7).
+4. **Legitimate concern:** The training set has only 47 potentially habitable planets (out of 9,614). With so few positive examples, the model may be overly conservative in real deployment. We mitigate this with the continuous composite score (see Section 7).
 
 ### Feature Importance Rankings (From SHAP Analysis)
 
@@ -486,46 +487,81 @@ The ML model output (class probabilities) alone has limitations:
 The composite score combines **ML prediction + physics-based metrics** for robustness:
 
 ```
-Habitability Score =
-    0.40 × ML_probability_of_POTENTIALLY_HABITABLE
-    + 0.30 × Earth_Similarity_Index (ESI)
-    + 0.20 × Habitable_Zone_Proximity_Score
-    + 0.10 × Stellar_Type_Factor
+habitability_score = 0.10 × ML_score + 0.90 × physics_score
 ```
 
-### Component 1: ML Probability (40% weight)
+The physics term dominates deliberately. The ML models were trained on a
+distribution where under 1% of planets are potentially habitable, so left to
+itself the classifier pushes almost everything toward NON_HABITABLE. Anchoring
+90% of the score to physics is what makes Earth-like inputs land above 90% and
+Venus-like inputs below 20%, regardless of that training bias.
 
-The XGBoost/RF model's probability for the "POTENTIALLY_HABITABLE" class. Range: 0.0–1.0.
+> The authoritative implementation is `calculate_habitability_score()` in
+> `backend/api/habitability_scorer.py`. If you change the weights there, update
+> this section too.
 
-### Component 2: Earth Similarity Index (30% weight)
+### Component 1: ML score (10% weight)
+
+A single scalar collapsed from the model's three class probabilities:
 
 ```python
-ESI_radius = 1 - abs((pl_rade - 1.0) / (pl_rade + 1.0)) ** 0.25
-ESI_temp   = 1 - abs((pl_eqt  - 288)  / (pl_eqt  + 288))  ** 0.5
-ESI_flux   = 1 - abs((pl_insol - 1.0) / (pl_insol + 1.0)) ** 0.5
-
-ESI = (ESI_radius + ESI_temp + ESI_flux) / 3
+ml_score = P(POTENTIALLY_HABITABLE) * 1.0 \
+         + P(HABITABILITY_ZONE)     * 0.5 \
+         + P(NON_HABITABLE)         * 0.0
 ```
 
-Note: `pl_eqt` reference is 288 K here (actual Earth surface temp), not 255 K (equilibrium temp), because we want to capture how close to Earth's *actual* conditions, not the theoretical bare-rock temperature.
+If the model fails to load or predict, it falls back to
+`prob_pot_hab=0.05, prob_hz=0.15, prob_non_hab=0.80` and the physics term
+carries the result.
 
-### Component 3: Habitable Zone Proximity (20% weight)
+### Component 2: Physics score (90% weight)
 
 ```python
-# For a G-type star:
-hz_inner, hz_outer = 0.95, 1.67  # AU (Kopparapu 2013 conservative)
-
-if hz_inner <= pl_orbsmax <= hz_outer:
-    hz_score = 1.0
-elif pl_orbsmax < hz_inner:
-    # Too close — penalize proportionally
-    hz_score = max(0, 1 - (hz_inner - pl_orbsmax) / hz_inner)
-else:
-    # Too far — penalize
-    hz_score = max(0, 1 - (pl_orbsmax - hz_outer) / hz_outer)
+physics_score = (temp_sim * radius_sim * insol_sim) ** (1/3)   # geometric mean
+                * (0.4 + 0.6 * in_hz)          # insolation inside conservative HZ
+                * (0.7 + 0.3 * hz_proximity)   # orbital distance via Kepler's 3rd law
+                * stellar_factor               # host star type
 ```
 
-### Component 4: Stellar Type Factor (10% weight)
+The three similarity terms are linear distance penalties, each clamped to [0, 1]:
+
+```python
+temp_sim   = 1 - abs(pl_eqt   - 255.0) / 500.0   # 255 K = Earth equilibrium temp
+radius_sim = 1 - abs(pl_rade  - 1.0)   / 10.0    # 1.0 Earth radii
+insol_sim  = 1 - abs(pl_insol - 1.0)   / 10.0    # 1.0 Earth flux
+```
+
+A geometric mean is used rather than an arithmetic one so that a single
+disqualifying parameter (say a 3,000 K equilibrium temperature) drags the whole
+score down instead of being averaged away by two good parameters.
+
+`in_hz` is derived from insolation against the conservative habitable zone
+(0.25–1.67 S⊕), with a linear falloff on the cold side and a steeper one on the
+hot side. `hz_proximity` comes from orbital distance, which is derived from
+`pl_orbper` via Kepler's third law — this is what makes orbital period affect
+the score at all.
+
+### Earth Similarity Index (reported, but not a scoring term)
+
+ESI is computed and returned in the API response, but it is **not** one of the
+weighted inputs to `habitability_score`. It uses the Schulze-Makuch et al.
+(2011) exponent form, combined as a geometric mean:
+
+```python
+ESI_radius = 1 - abs((pl_rade  / 1.0)   ** 0.57 - 1)   # exponent 0.57 for radius
+ESI_temp   = 1 - abs((pl_eqt   / 288.0) ** 0.25 - 1)   # 288 K = Earth surface temp
+ESI_flux   = 1 - abs((pl_insol / 1.0)   ** 0.25 - 1)
+
+ESI = (ESI_radius * ESI_temp * ESI_flux) ** (1/3)
+```
+
+Note the two different temperature references in play: ESI compares against
+Earth's **surface** temperature (288 K), while `temp_sim` in the physics score
+compares against Earth's **equilibrium** temperature (255 K). That is
+intentional — ESI is a published index with a fixed definition, while `temp_sim`
+measures similarity in the same quantity the dataset actually reports.
+
+### Stellar Type Factor (a multiplier on the physics score)
 
 | Star Type | Factor | Rationale |
 |-----------|--------|-----------|
@@ -541,9 +577,9 @@ else:
 
 | Score | Class | Meaning |
 |-------|-------|---------|
-| 0.65–1.0 | POTENTIALLY_HABITABLE | Strong candidate — prioritize for follow-up |
-| 0.35–0.64 | HABITABILITY_ZONE | In or near the HZ but physically uncertain |
-| 0.0–0.34 | NON_HABITABLE | Physical properties inconsistent with habitability |
+| 0.66–1.0 | POTENTIALLY_HABITABLE | Strong candidate — prioritize for follow-up |
+| 0.30–0.65 | HABITABILITY_ZONE | In or near the HZ but physically uncertain |
+| 0.0–0.29 | NON_HABITABLE | Physical properties inconsistent with habitability |
 
 These thresholds were chosen to match the observed distribution in the training data and align with published habitability catalogs (PHL's HEC).
 
@@ -554,7 +590,7 @@ These thresholds were chosen to match the observed distribution in the training 
 ### Known Technical Limitations
 
 **1. Training Class Imbalance**
-Only 28 out of 9,614 planets (0.29%) are POTENTIALLY_HABITABLE. This is the real-world distribution — habitable planets are rare. The models handle this with `class_weight='balanced'` and careful evaluation, but predictions for borderline cases may be unreliable.
+Only 47 out of 9,614 processed rows (0.49%) are POTENTIALLY_HABITABLE — 43 after de-duplication into the database. This is the real-world distribution — habitable planets are rare. The models handle this with `class_weight='balanced'` and careful evaluation, but predictions for borderline cases may be unreliable.
 
 **2. Missing Mass Data**
 `pl_masse` (planet mass) is not used as a feature because only ~30% of planets have it measured. Mass would strengthen predictions (density → composition → rocky vs gas). This is a dataset limitation, not a model choice failure.
@@ -572,14 +608,14 @@ As explained in Section 5 — we cannot account for atmospheric composition, pre
 TESS candidates ("TOI" = TESS Object of Interest) are not all confirmed planets. Some may be false positives (eclipsing binaries mimicking planet transits). Our TESS model was trained on TOI candidates with habitability-relevant properties, so some training samples may not be real planets.
 
 **7. Limited POTENTIALLY_HABITABLE Training Samples**
-Only 28 planets in the entire dataset across all 3 missions qualify as potentially habitable. The models are excellent at identifying non-habitable planets but the positive class generalization is limited by sample size.
+Only 47 rows across all 3 missions qualify as potentially habitable (43 unique planets in the database). The models are excellent at identifying non-habitable planets but the positive class generalization is limited by sample size.
 
 ### How We Mitigate These Limitations
 
 1. **Composite scoring** blends ML with physics, reducing model-specific bias
 2. **Three separate mission models** prevent one mission's biases from dominating
 3. **SHAP explainability** lets users understand why a prediction was made
-4. **Conservative classification thresholds** — we require score ≥ 0.65 for POTENTIALLY_HABITABLE
+4. **Conservative classification thresholds** — we require score ≥ 0.66 for POTENTIALLY_HABITABLE
 5. **Transparent uncertainty** — the UI shows confidence and contributing factors
 6. **Fallback explainability** — if SHAP/LIME fail, a physics-based fallback still explains the result
 
@@ -595,6 +631,8 @@ Only 28 planets in the entire dataset across all 3 missions qualify as potential
 | GET | `/api/planets/{id}/` | Planet detail |
 | GET | `/api/planets/stats/` | Dataset statistics |
 | GET | `/api/planets/habitable/` | Only habitable planets |
+| GET | `/api/planets/search/` | Name search, max 50 results |
+| GET | `/api/planets/compare/` | Compare up to 10 planets via `?ids=1,2,3` |
 | GET | `/api/missions/` | List K2, Kepler, TESS |
 | POST | `/api/predict/` | Single planet habitability prediction |
 | POST | `/api/predict/batch/` | Batch prediction (CSV upload) |
@@ -605,7 +643,7 @@ Only 28 planets in the entire dataset across all 3 missions qualify as potential
 | POST | `/api/auth/register/` | Create account, returns JWT |
 | POST | `/api/auth/login/` | Login by username or email, returns JWT |
 | GET | `/api/auth/me/` | Current user profile (auth required) |
-| POST | `/api/auth/logout/` | Blacklist refresh token |
+| POST | `/api/auth/logout/` | Logout signal — see the blacklist caveat below |
 | GET/POST | `/api/auth/saved/` | List / save habitability predictions (auth required) |
 | DELETE | `/api/auth/saved/{id}/` | Delete a saved prediction (auth required) |
 
@@ -629,7 +667,7 @@ All application data lives in a single **Neon DB** PostgreSQL instance hosted on
 | Table | App | Contents |
 |-------|-----|----------|
 | `planets_mission` | planets | K2, Kepler, TESS mission metadata |
-| `planets_exoplanet` | planets | 9,614 exoplanet rows with all parameters |
+| `planets_exoplanet` | planets | 8,245 exoplanet rows with all parameters |
 | `auth_user` | Django built-in | User accounts (username, email, password hash) |
 | `users_userprofile` | users | OneToOne extension — base64 profile avatar |
 | `users_savedprediction` | users | Per-user saved habitability predictions (JSON inputs + outputs) |
@@ -652,10 +690,14 @@ created_at (auto DateTimeField, indexed)
 ```
 
 **Auth — JWT via djangorestframework-simplejwt:**
-- Access token lifetime: **7 days**
-- Refresh token lifetime: **30 days**
+- Access token lifetime: **1 hour**
+- Refresh token lifetime: **7 days**
 - Login accepts either username **or** email
 - Token rotation disabled (refresh token stays valid until expiry)
+- `/api/auth/logout/` cannot truly revoke a token: `token_blacklist` is not in
+  `INSTALLED_APPS`, so the call always returns 200 and the client simply drops
+  its own tokens. Add `rest_framework_simplejwt.token_blacklist` and migrate if
+  server-side revocation is required.
 
 ---
 

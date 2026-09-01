@@ -177,34 +177,16 @@ export const deleteSavedPrediction = async (id) => {
   return response.data;
 };
 
-// ==================== Comparison & Analytics API ====================
+// ==================== Comparison API ====================
 
 /**
- * Compare multiple planets
+ * Compare multiple planets side by side (max 10)
  * @param {Array} planetIds - Array of planet IDs
  * @returns {Promise} - Comparison data
  */
 export const comparePlanets = async (planetIds) => {
   const ids = planetIds.join(',');
-  const response = await apiClient.get(`compare/?ids=${ids}`);
-  return response.data;
-};
-
-/**
- * Get distribution data (temperature, radius, etc.)
- * @returns {Promise} - Distribution analytics
- */
-export const getDistributions = async () => {
-  const response = await apiClient.get('analytics/distributions/');
-  return response.data;
-};
-
-/**
- * Get parameter correlations
- * @returns {Promise} - Correlation data
- */
-export const getCorrelations = async () => {
-  const response = await apiClient.get('analytics/correlations/');
+  const response = await apiClient.get(`planets/compare/?ids=${ids}`);
   return response.data;
 };
 

@@ -229,7 +229,7 @@ def compare_planets(request):
     """
     Compare multiple planets by their IDs.
     
-    GET /api/compare/?ids=1,2,3
+    GET /api/planets/compare/?ids=1,2,3
     """
     ids_param = request.query_params.get('ids', '')
     

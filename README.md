@@ -91,37 +91,51 @@ FYP/
 ├── frontend/                    # React + Vite application
 │   ├── src/
 │   │   ├── pages/               # Route-level components
-│   │   │   ├── Home.jsx
-│   │   │   ├── ExplorePlanets.jsx
-│   │   │   ├── PlanetDetail.jsx
-│   │   │   ├── ComparePlanets.jsx
+│   │   │   ├── Home.jsx                # Landing page
+│   │   │   ├── ExplorePlanets.jsx      # Main page: filters + 3D + grid + prediction
+│   │   │   ├── PlanetDetail.jsx        # Full planet profile + ML prediction
+│   │   │   ├── ComparePlanets.jsx      # Side-by-side comparison
+│   │   │   ├── Concepts.jsx            # "Learn" — habitability concepts
+│   │   │   ├── Upload.jsx              # Batch CSV prediction
 │   │   │   ├── About.jsx
-│   │   │   ├── Concepts.jsx
-│   │   │   └── Upload.jsx
+│   │   │   ├── login.jsx / signin.jsx  # Auth screens
+│   │   │   ├── NotFound.jsx            # 404 route
+│   │   │   └── ComingSoon.jsx          # Placeholder for unshipped routes
 │   │   ├── components/          # Shared components
 │   │   │   ├── ExoplanetViewer3D.jsx   # Full 3D orbital viewer
+│   │   │   ├── SolarSystemViewer.jsx   # Solar-system 3D scene
+│   │   │   ├── AboutHeroCube.jsx       # About-page 3D hero
 │   │   │   ├── PredictionPanel.jsx     # Habitability prediction UI
 │   │   │   ├── FiltersPanel.jsx        # Explore-page filters
 │   │   │   ├── PlanetGrid.jsx          # Paginated planet cards
+│   │   │   ├── PlanetCard.jsx          # Single planet card
+│   │   │   ├── SearchBar.jsx           # Typeahead planet search
 │   │   │   ├── Chatbot.jsx             # ARIA chatbot
+│   │   │   ├── ScrollToTop.jsx         # Route-change scroll reset
 │   │   │   ├── Navbar.jsx
 │   │   │   └── Footer.jsx
 │   │   ├── services/
 │   │   │   └── api.js           # Axios client (all API calls)
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx  # JWT auth state
+│   │   ├── utils/               # helpers.js, mockData.js
 │   │   └── App.jsx              # Router + global layout
+│   ├── public/                  # favicon, logo, 3D model, FYP PDFs
+│   ├── .env.example             # VITE_API_URL template
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── backend/                     # Django REST API
 │   ├── api/
-│   │   └── habitability_scorer.py   # Core scoring engine
-│   ├── planets/                 # Planet CRUD + stats endpoints
-│   ├── predictions/             # Single + batch prediction endpoints
+│   │   └── habitability_scorer.py   # Core scoring engine (imported by predictions)
+│   ├── planets/                 # Planet list/detail/search/stats/compare endpoints
+│   ├── predictions/             # Single + batch prediction, /explain/, ai_service.py
 │   ├── users/                   # Auth, profile, saved predictions
 │   ├── chatbot/                 # ARIA chatbot endpoint (Groq)
-│   ├── backend/                 # Django settings
+│   ├── backend/                 # Django settings, URLs, CSP middleware
+│   ├── load_data_to_db.py       # Loads processed CSVs into the database
+│   ├── backfill_planet_names.py # Repairs placeholder planet names (see below)
+│   ├── .env.example             # Backend environment template
 │   └── manage.py
 │
 ├── notebooks/                   # Jupyter notebooks (data processing + ML training)
@@ -134,21 +148,29 @@ FYP/
 │   └── 05_model_comparison.ipynb
 │
 ├── data/
-│   ├── raw/                     # Original NASA archive CSVs
+│   ├── raw/                     # Original NASA archive CSVs (k2, kepler, TOI)
 │   └── processed/               # Cleaned, ML-ready datasets (train/val/test splits)
-│       ├── k2/
-│       ├── kepler/
-│       └── tess/
+│       ├── k2/                  # 1,937 rows
+│       ├── kepler/              # 2,742 rows
+│       └── tess/                # 4,935 rows
 │
-├── artifacts/                   # Trained model files + preprocessors (.pkl)
-│   ├── k2/                      # XGBoost (270 features)
-│   ├── kepler/                  # XGBoost (130 features)
-│   └── tess/                    # Random Forest (44 features)
+├── models/                      # Trained classifiers (.pkl) + evaluation CSVs
+│   ├── k2_xgboost_model.pkl         # K2 — XGBoost (270 features)
+│   ├── kepler_xgboost_model.pkl     # Kepler — XGBoost (130 features)
+│   ├── tess_random_forest_model.pkl # TESS — Random Forest (44 features)
+│   ├── ensemble_model.pkl           # Experimental combined model
+│   └── *_model_performance.csv      # Per-mission metrics
 │
-├── Datasets/                    # Raw NASA CSV downloads
-├── models/                      # Model evaluation reports
-├── tests/                       # Unit tests
+├── artifacts/                   # Preprocessors only — scalers, encoders, metadata
+│   ├── k2/                      # minmax + standard scaler, label encoder, metadata
+│   ├── kepler/
+│   └── tess/
+│
+├── docs/                        # FYP report drafts (.docx) + extracted text
+├── tests/                       # pytest suite (ML models + habitability scorer)
+├── test_models.py               # Standalone model evaluation harness
 ├── vercel.json                  # Frontend SPA rewrite rules
+├── Procfile / runtime.txt       # Railway backend deployment
 └── requirements.txt             # Python dependencies
 ```
 
@@ -178,11 +200,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Configure environment variables
-cp backend/.env.example backend/.env
-# Edit backend/.env and set:
-#   DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT  (Neon credentials)
-#   SECRET_KEY                                        (Django secret key)
-#   GROQ_API_KEY                                      (Groq chatbot)
+cp backend/.env.example backend/.env   # if the template is present
+# Otherwise create backend/.env by hand — the table below lists every variable.
 
 # 5. Run migrations
 cd backend
@@ -194,6 +213,35 @@ python load_data_to_db.py
 # 7. Start the development server
 python manage.py runserver       # API available at http://localhost:8000
 ```
+
+#### Backend environment variables
+
+All are read in `backend/backend/settings.py` (except `GROQ_API_KEY`, read in `backend/chatbot/views.py`).
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SECRET_KEY` | When `DEBUG=false` | Django cryptographic signing key |
+| `DEBUG` | No (default `false`) | `true` locally; when `false` Django also enables SSL redirect, HSTS and secure cookies |
+| `DATABASE_URL` | One of these two | Full PostgreSQL connection string — takes priority |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | One of these two | Discrete Neon credentials; used when `DATABASE_URL` is unset |
+| `GROQ_API_KEY` | For the chatbot | Groq Cloud key. Without it `/api/chatbot/` reports unavailable rather than failing |
+| `ALLOWED_HOSTS` | No | Comma-separated; falls back to localhost + `.up.railway.app` |
+| `CORS_ALLOWED_ORIGINS` | No | Comma-separated; falls back to localhost + the deployed Vercel origin |
+| `CSRF_TRUSTED_ORIGINS` | No | Comma-separated; same fallback behaviour |
+
+> If none of `DATABASE_URL` or `DB_PASSWORD` is set, Django falls back to a local SQLite file at `backend/db.sqlite3`.
+
+#### Repairing placeholder planet names
+
+The Kepler and TESS processed datasets have no `pl_name` column — they use `kepler_name` and `toi`. A database loaded before this was handled will contain positional placeholders (`Kepler_planet_0`, `TESS_planet_0`) instead of catalogue designations, which breaks name search. To repair an existing database:
+
+```bash
+cd backend
+python backfill_planet_names.py            # dry run — prints every planned rename
+python backfill_planet_names.py --apply    # commit the renames in one transaction
+```
+
+Fresh loads via `load_data_to_db.py` already resolve real names and need no repair.
 
 ### Frontend Setup
 
@@ -209,17 +257,33 @@ npm run dev                      # App available at http://localhost:3000
 
 > **Note:** The frontend Vite config proxies all `/api/*` requests to `http://localhost:8000`, so no CORS configuration is needed in development.
 
+#### Frontend environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `VITE_API_URL` | Production only | Absolute base URL of the deployed API, including the trailing `/api`. Leave unset locally so the Vite proxy handles it. |
+
+Copy `frontend/.env.example` to `frontend/.env` for local overrides, or set the variable in the Vercel dashboard for production.
+
 ---
 
 ## ML Models
 
 Three independent mission-specific classifiers were trained, each optimised for the feature space available from that mission's instrument:
 
-| Mission | Algorithm | Training Samples | Features | Accuracy | Weighted F1 |
+| Mission | Algorithm | Train / Val / Test | Features | Accuracy | Weighted F1 |
 |---|---|---|---|---|---|
-| Kepler | XGBoost | ~2,200 | 130 | **100%** | 1.000 |
-| K2 | XGBoost | ~1,550 | 270 | **99.2%** | 0.991 |
-| TESS | Random Forest | ~2,860 | 44 | **100%** | 1.000 |
+| Kepler | XGBoost | 1,645 / 548 / 549 | 130 | **100%** | 1.000 |
+| K2 | XGBoost | 1,162 / 387 / 388 | 270 | **99.2%** | 0.991 |
+| TESS | Random Forest | 2,961 / 987 / 987 | 44 | **100%** | 1.000 |
+
+> **Read these headline figures with care.** They are weighted over all three
+> classes, and the datasets are extremely imbalanced — K2 has 5 potentially
+> habitable planets out of 1,937, TESS has 10 out of 4,935. `models/model_evaluation_report.csv`
+> records the per-class breakdown, where minority-class F1 is far lower
+> (0.00 for K2's single potentially-habitable test sample, 0.50 for TESS's two).
+> This imbalance is precisely why the production score weights physics at 90%
+> and the ML output at only 10%. See [models/README.md](./models/README.md).
 
 ### Scoring Architecture
 
@@ -256,9 +320,25 @@ All endpoints are prefixed with `/api/`.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/planets/` | Paginated planet list (supports `page`, `page_size`, `mission`, `habitability`, `q`) |
+| `GET` | `/planets/` | Paginated planet list — see query parameters below |
 | `GET` | `/planets/{id}/` | Full planet detail |
-| `GET` | `/planets/stats/` | Dataset-wide statistics |
+| `GET` | `/planets/habitable/` | Paginated list restricted to `POTENTIALLY_HABITABLE` + `HABITABILITY_ZONE` |
+| `GET` | `/planets/search/?q=` | Name search, capped at 50 results |
+| `GET` | `/planets/compare/?ids=1,2,3` | Side-by-side comparison, max 10 planets |
+| `GET` | `/planets/stats/` | Dataset-wide statistics (counts per mission and class, averages) |
+| `GET` | `/missions/` | List the three missions with metadata |
+
+**Query parameters for `/planets/`:**
+
+| Parameter | Example | Description |
+|---|---|---|
+| `page`, `page_size` | `?page=2&page_size=30` | Pagination — default 50, max 200 |
+| `mission` | `?mission=kepler` | `k2`, `kepler`, or `tess` (case-insensitive) |
+| `habitability` | `?habitability=POTENTIALLY_HABITABLE` | Filter by classification |
+| `min_radius`, `max_radius` | `?min_radius=0.5&max_radius=2.0` | Radius range in Earth radii |
+| `min_temp`, `max_temp` | `?min_temp=180&max_temp=310` | Equilibrium temperature range in K |
+| `q` | `?q=Kepler-227` | Case-insensitive planet-name search |
+| `hide_incomplete` | `?hide_incomplete=true` | Drop rows missing both `pl_eqt` and `pl_rade` |
 
 ### Predictions
 
@@ -266,6 +346,9 @@ All endpoints are prefixed with `/api/`.
 |---|---|---|
 | `POST` | `/predict/` | Single-planet habitability prediction |
 | `POST` | `/predict/batch/` | Batch prediction from CSV upload |
+| `POST` | `/explain/` | Prediction plus SHAP / LIME feature attribution |
+| `GET` | `/models/info/` | Loaded model metadata and performance metrics |
+| `GET` | `/health/` | Service health check (model load status) |
 
 **Single prediction request body:**
 ```json
@@ -287,8 +370,13 @@ All endpoints are prefixed with `/api/`.
 | `POST` | `/auth/register/` | Create an account |
 | `POST` | `/auth/login/` | Login (username or email), returns JWT access + refresh tokens |
 | `GET` | `/auth/me/` | Current user profile |
+| `POST` | `/auth/logout/` | Client-side logout signal (see note) |
 | `GET/POST` | `/auth/saved/` | List or save a prediction |
 | `DELETE` | `/auth/saved/{id}/` | Delete a saved prediction |
+
+Access tokens live for **1 hour**, refresh tokens for **7 days**; token rotation is disabled.
+
+> **Note on `/auth/logout/`:** `token_blacklist` is not in `INSTALLED_APPS`, so the endpoint cannot actually revoke a refresh token — it always returns `200` and the client discards its own tokens. An unexpired refresh token stays usable until it lapses. Add `rest_framework_simplejwt.token_blacklist` to `INSTALLED_APPS` and migrate if true server-side revocation is required.
 
 ### Chatbot
 

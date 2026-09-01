@@ -26,9 +26,9 @@ def api_info(request):
             'health_check': '/api/health/',
             'planets': '/api/planets/',
             'missions': '/api/missions/',
-            'auth': '/api/auth/ (Step 7)'
+            'auth': '/api/auth/'
         },
-        'documentation': 'See PROJECT_ROADMAP.md for details'
+        'documentation': 'See README.md for the full API reference'
     })
 
 urlpatterns = [
@@ -41,16 +41,16 @@ urlpatterns = [
     # Prediction endpoints (main API)
     path('api/', include('predictions.urls')),
     
-    # Planet data endpoints (for Step 3.2)
+    # Planet data endpoints
     path('api/planets/', include('planets.urls')),
     
     # Missions endpoint
     path('api/missions/', mission_list, name='missions'),
     
-    # User authentication endpoints (for Step 7)
+    # User authentication + saved predictions
     path('api/auth/', include('users.urls')),
 
-    # Chatbot endpoint (Ollama local LLM)
+    # Chatbot endpoint (ARIA — Groq Cloud API)
     path('api/chatbot/', include('chatbot.urls')),
 ]
 
