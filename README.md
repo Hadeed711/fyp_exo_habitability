@@ -118,8 +118,7 @@ FYP/
 │   │   │   ├── Upload.jsx              # Batch CSV prediction
 │   │   │   ├── About.jsx
 │   │   │   ├── login.jsx / signin.jsx  # Auth screens
-│   │   │   ├── NotFound.jsx            # 404 route
-│   │   │   └── ComingSoon.jsx          # Placeholder for unshipped routes
+│   │   │   └── NotFound.jsx            # 404 route
 │   │   ├── components/          # Shared components
 │   │   │   ├── ExoplanetViewer3D.jsx   # Full 3D orbital viewer
 │   │   │   ├── SolarSystemViewer.jsx   # Solar-system 3D scene
@@ -137,7 +136,6 @@ FYP/
 │   │   │   └── api.js           # Axios client (all API calls)
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx  # JWT auth state
-│   │   ├── utils/               # helpers.js, mockData.js
 │   │   └── App.jsx              # Router + global layout
 │   ├── public/                  # favicon, logo, 3D model, FYP PDFs
 │   ├── .env.example             # VITE_API_URL template
@@ -191,6 +189,15 @@ FYP/
 ├── vercel.json                  # Frontend SPA rewrite rules
 ├── Procfile / runtime.txt       # Railway backend deployment
 └── requirements.txt             # Python dependencies
+```
+
+> `backend/api/` contains only `habitability_scorer.py` and `__init__.py`. The
+> app is deliberately **not** in `INSTALLED_APPS` — it survives purely as the
+> import path for the scorer. Its unused Django scaffolding (views, urls, models,
+> serializers, admin, apps, tests) was deleted; add new endpoints to
+> `predictions/` instead.
+
+```text
 ```
 
 ---

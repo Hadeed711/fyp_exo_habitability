@@ -20,8 +20,7 @@ outside the route switch.
 | `/signin` | `signin.jsx` | Registration, including avatar upload |
 | `*` | `NotFound.jsx` | 404 fallback |
 
-`ComingSoon.jsx` is a generic placeholder component. It is not currently bound
-to any route — keep it for stubbing a new page.
+Every page in this directory is routed. There are no unused page components.
 
 > Note the filename casing: `login.jsx` and `signin.jsx` are lowercase while
 > every other page is PascalCase. Imports in `App.jsx` match the files exactly.

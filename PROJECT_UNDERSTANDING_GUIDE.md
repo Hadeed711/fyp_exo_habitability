@@ -664,8 +664,9 @@ not rendered as documents.
 > **Important structural quirk:** `api` is **not** in `INSTALLED_APPS` and its
 > URLs are not routed. It survives purely as an import path —
 > `ai_service.py` does `from api.habitability_scorer import HabitabilityScorer`.
-> Its `views.py`, `models.py`, `urls.py`, `serializers.py` and `admin.py` are
-> **dead code**, superseded by the `predictions` app. Do not add routes here.
+> The directory now holds only `habitability_scorer.py` and `__init__.py`; the
+> unused Django scaffolding that once duplicated the `predictions` app has been
+> deleted. Add new endpoints to `predictions/`, never here.
 
 **`habitability_scorer.py`** (~815 lines) — the most important file in the
 project. The `HabitabilityScorer` class:
@@ -753,13 +754,14 @@ returns 503 if models are missing.
 optional but requires at least one of `pl_rade`, `pl_eqt`, `pl_insol`, `st_teff`.
 `BatchPredictionSerializer` caps a batch at **100 planets**.
 
-**`models.py`** — `PredictionHistory` and `SimulationHistory`.
+**`models.py`** — defines **no models**.
 
-> **Both are completely unused.** Their tables exist in the database and are
-> **empty (0 rows)**; no view, serializer or script references them. Saved
-> predictions actually live in `users.SavedPrediction`. If the roadmap or a
-> report claims "prediction history" as a delivered feature, that claim needs
-> qualifying — the models exist, the feature does not.
+> This app used to declare `PredictionHistory` and `SimulationHistory`. Neither
+> was ever wired up — no view, serializer or script referenced them, and both
+> tables sat at 0 rows — so they and their tables were removed in migration
+> `0002`. Per-user saved predictions live in `users.SavedPrediction`, which is
+> what `/api/auth/saved/` actually uses. If a report claims "prediction history"
+> as a delivered feature, that claim is wrong.
 
 ---
 
@@ -897,7 +899,6 @@ The only shared state in the app. Exposes `user`, `token`, `isLoggedIn`,
 | `About.jsx` | 518 | Project and academic context; 3D hero cube |
 | `login.jsx` / `signin.jsx` | 233 / 309 | Auth screens. Lowercase filenames — see below |
 | `NotFound.jsx` | 111 | 404 |
-| `ComingSoon.jsx` | 37 | Placeholder, **not bound to any route** |
 
 > **Filename casing hazard.** `login.jsx` and `signin.jsx` are lowercase while
 > every other page is PascalCase. Windows is case-insensitive, Linux (and Vercel)
@@ -965,17 +966,9 @@ described in [Section 13](#13-what-this-system-cannot-do).
 
 ---
 
-### `utils/` — currently dead code
-
-| File | Lines | Status |
-|---|---|---|
-| `helpers.js` | 271 | ~19 formatting/validation helpers — **imported nowhere** |
-| `mockData.js` | 500 | Offline sample data — **imported nowhere** |
-
-Both are leftovers from early development; components inline their own
-formatting instead. They are harmless but they are 771 lines of code that will
-mislead a reader into thinking they are load-bearing. Either wire `helpers.js`
-up or delete both.
+> There is no `utils/` directory. It previously held `helpers.js` (271 lines)
+> and `mockData.js` (500 lines), neither imported anywhere; both were deleted.
+> Components inline their own formatting.
 
 ---
 ---
@@ -1145,9 +1138,6 @@ for a deploy, install them into a fresh virtualenv and run `pytest`.
 
 | Issue | Detail |
 |---|---|
-| `PredictionHistory` / `SimulationHistory` | Models and tables exist, 0 rows, referenced nowhere |
-| `backend/api/` views and URLs | Dead code; the app is not installed, only imported from |
-| `utils/helpers.js`, `utils/mockData.js` | 771 lines, imported nowhere |
 | `/api/auth/logout/` | Cannot revoke tokens; blacklist app not installed |
 | No token refresh | Refresh token stored but never used; users drop at 1 hour |
 | `planet_list` filter parsing | Bad numeric query param raises `ValueError` → 500 instead of 400 |
@@ -1155,7 +1145,6 @@ for a deploy, install them into a fresh virtualenv and run `pytest`.
 | Bundle size | One ~1.87 MB JS chunk (~547 kB gzipped); `React.lazy` around the 3D viewers is the fix |
 | ESLint | 46 pre-existing problems (mostly unused imports) |
 | `login.jsx` / `signin.jsx` | Lowercase filenames; case-sensitivity hazard on Linux builds |
-| `backend/db.sqlite3` | 2.6 MB dev database committed to git |
 
 ### Test coverage
 
@@ -1227,10 +1216,14 @@ correctly locally. (Fix this before a demo, or demo locally.)
 
 **"What would you do next?"**
 Redeploy the backend and reconcile `requirements.txt` with the environment the
-models were trained in. Add tests for the scoring layer, which has none. Use
-planetary mass where available to derive density and separate rock from gas.
-Remove the dead code. Longer term, incorporate JWST atmospheric data as it
-becomes available — that is the only path to distinguishing Earth from Venus.
+models were trained in. Add tests for the scoring layer, which currently has
+none. Use planetary mass where available to derive density and separate rock
+from gas. Longer term, incorporate JWST atmospheric data as it becomes
+available — that is the only path to distinguishing Earth from Venus.
+
+(The dead code — two unused Django models and their tables, the duplicated
+`backend/api/` scaffolding, and 771 lines of unimported frontend utilities —
+has already been removed.)
 
 ---
 

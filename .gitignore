@@ -26,3 +26,11 @@ Thumbs.db
 # Large files (optional - if models are too big)
 # models/*.pkl
 # artifacts/
+# Local dev database (production uses Neon PostgreSQL)
+db.sqlite3
+
+# Build / collected artifacts
+staticfiles/
+dist/
+node_modules/
+.pytest_cache/

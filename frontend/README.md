@@ -51,11 +51,8 @@ src/
 ├── components/          Shared components       → see components/README.md
 ├── context/
 │   └── AuthContext.jsx  JWT auth state
-├── services/
-│   └── api.js           Axios instance + every API call
-└── utils/
-    ├── helpers.js       Formatting and calculation helpers
-    └── mockData.js      Offline sample data, used for development only
+└── services/
+    └── api.js           Axios instance + every API call
 ```
 
 `public/` holds the favicon, logo, the `models/scene.gltf` asset used by the 3D

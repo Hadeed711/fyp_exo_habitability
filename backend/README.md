@@ -16,19 +16,23 @@ internals.
 | App | Responsibility |
 |---|---|
 | `planets/` | `Mission` + `Exoplanet` models; list, detail, search, compare, stats endpoints |
-| `predictions/` | `/predict/`, `/predict/batch/`, `/explain/`, `/models/info/`, `/health/`; `ai_service.py` holds the ML service layer |
+| `predictions/` | `/predict/`, `/predict/batch/`, `/explain/`, `/models/info/`, `/health/`; `ai_service.py` holds the ML service layer. Defines **no** database models |
 | `users/` | Register, login, me, logout; `SavedPrediction` CRUD |
 | `chatbot/` | ARIA — proxies to the Groq Cloud API |
-| `api/` | `habitability_scorer.py`, the core scoring engine |
+| `api/` | `habitability_scorer.py`, the core scoring engine. Not an installed Django app |
 | `backend/` | Settings, root URL conf, CSP middleware |
 
 ### A note on the `api` app
 
-`api` is **not** in `INSTALLED_APPS` and `api/urls.py` is not routed. It exists
-solely as an import path — `predictions/ai_service.py` does
-`from api.habitability_scorer import HabitabilityScorer`. Its `views.py`,
-`models.py` and `urls.py` are superseded by the `predictions` app and are not
-reachable over HTTP. Don't add routes there; add them to `predictions/`.
+`api` is **not** in `INSTALLED_APPS`, and it contains only two files:
+`habitability_scorer.py` and `__init__.py`. It exists solely as an import path —
+`predictions/ai_service.py` does
+`from api.habitability_scorer import HabitabilityScorer`.
+
+Its Django scaffolding (`views.py`, `urls.py`, `models.py`, `serializers.py`,
+`admin.py`, `apps.py`, `tests.py` and an empty `migrations/`) duplicated the
+`predictions` app, was unreachable over HTTP, and has been deleted. Add new
+endpoints to `predictions/`, never here.
 
 ---
 

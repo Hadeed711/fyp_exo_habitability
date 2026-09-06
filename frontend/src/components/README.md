@@ -89,13 +89,6 @@ degrades to a setup hint when `GROQ_API_KEY` is missing, rather than erroring.
   `useThree`) from a component rendered outside one.
 - **Loading and error states** are required for anything async.
 
-## Unused modules
-
-`../utils/helpers.js` (271 lines of formatting and validation helpers) and
-`../utils/mockData.js` (500 lines of offline sample data) are **imported
-nowhere**. Components inline their own formatting instead. They are harmless
-but misleading to a reader — either wire `helpers.js` up or delete both.
-
 ## Performance notes
 
 `ExoplanetViewer3D` and `SolarSystemViewer` dominate the bundle — a production

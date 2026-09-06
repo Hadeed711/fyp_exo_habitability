@@ -177,7 +177,7 @@ GET  /api/health/                      // API health check
 - ✅ Neon PostgreSQL with 8,245 unique exoplanets (from 9,614 processed rows)
 - ✅ `planets` app: List, filter, search, stats endpoints
 - ✅ `predictions` app: AI prediction with ML models integrated
-- ✅ Models: Mission, Exoplanet, PredictionHistory, SimulationHistory
+- ✅ Models: Mission, Exoplanet (planets app); UserProfile, SavedPrediction (users app)
 - ✅ CORS configured for React frontend
 - ✅ API fully tested and working
 </details>
@@ -898,13 +898,17 @@ def explain_prediction(planet_params, model):
 
 **Purpose**: Allow users to save their prediction simulations
 
-**Backend (Already Built):**
-- ✅ `User` model exists
-- ✅ `PredictionHistory` model exists
-- ✅ `SimulationHistory` model exists
-- ⚠️ Authentication API endpoints in `users` app are still placeholders and need implementation
+**Backend — ✅ delivered:**
+- ✅ Django's built-in `User`, extended by `UserProfile` (base64 avatar)
+- ✅ `SavedPrediction` — per-user named predictions (JSON inputs + outputs)
+- ✅ Auth endpoints implemented: register, login (username *or* email), me,
+  logout, and saved-prediction list / create / delete
 
-**To Implement (if needed):**
+> `PredictionHistory` and `SimulationHistory` were declared in the `predictions`
+> app but never used by any view or script, and their tables held 0 rows. Both
+> models and their tables were removed in migration `predictions.0002`.
+
+**Originally planned:**
 
 **1. Backend Endpoints:**
 ```python
@@ -1459,11 +1463,11 @@ Days 6-7: Practice presentation, refinements
 
 ### ❓ Optional Features (Check with Supervisor):
 
-1. **User Authentication & Dashboard**
-   - Backend models exist (User, SimulationHistory)
-   - Frontend not yet implemented
-   - **Question**: Do you need user accounts for FYP?
-   - If NO: Skip this, save time for core features
+1. **User Authentication & Dashboard** — ✅ built
+   - Backend: `User` + `UserProfile` + `SavedPrediction`
+   - Frontend: `/login`, `/signin`, avatar menu, save/reload from the
+     prediction panel
+   - Answer to the original question: yes, user accounts were included
    - If YES: Add Login, Register, Dashboard pages
 
 2. **AI Explainability (SHAP/LIME)**
@@ -1688,7 +1692,7 @@ the live services on 1 September 2026. Everything else in this file is history.
 |---|---|
 | Dependency drift | `requirements.txt` pins Django 5.0.1 / XGBoost 2.0.3 / Python 3.11; the environment that produced the `.pkl` models runs Django 6 / XGBoost 3.1.2 / Python 3.13. Pickles are not guaranteed to load across major versions. Install the pins into a clean virtualenv and run `pytest` before trusting them. |
 | No tests for the scoring layer | `pytest` covers the raw classifiers only. The `0.10 × ML + 0.90 × physics` blend, the thresholds and the ESI maths have zero automated coverage. |
-| Dead code | `PredictionHistory` / `SimulationHistory` models (0 rows, unreferenced), the whole `backend/api/` views/urls layer, and `frontend/src/utils/{helpers,mockData}.js` (771 lines, imported nowhere). |
+| ~~Dead code~~ | ✅ **Done.** Removed `PredictionHistory` / `SimulationHistory` (models + tables, via migration `predictions.0002`), the duplicated `backend/api/` scaffolding, `frontend/src/utils/` (771 unused lines), `ComingSoon.jsx`, the stray `habitability_api/` and `backend/package-lock.json`, the vestigial root `postcss.config.js` / `tailwind.config.js` / `scene.gltf`, and untracked `backend/db.sqlite3`. |
 | `/api/auth/logout/` | Cannot revoke tokens — `token_blacklist` is not in `INSTALLED_APPS`. Add it and migrate, or document the endpoint as client-side only. |
 | No token refresh | The refresh token is stored but never used; users are dropped after the 1-hour access token expires. |
 

@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
-import ComingSoon from './pages/ComingSoon';
 import ExplorePlanets from './pages/ExplorePlanets';
 import PlanetDetail from './pages/PlanetDetail';
 import ComparePlanets from './pages/ComparePlanets';
