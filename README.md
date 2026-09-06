@@ -278,14 +278,15 @@ network access:
 ```bash
 python scripts/train_models.py      # models, artifacts, labelled catalogue, reports
 python scripts/calibrate_blend.py   # blend weight + class thresholds
+python scripts/verify_docs.py       # confirm the docs still match the artifacts
 ```
 
 `train_models.py` writes **one** labelled catalogue,
 `data/processed/habitability_catalogue.csv`, and `load_data_to_db.py` is the
 only thing that reads it. That is deliberate: the classes shown on the site and
 the classes the model was trained on are the same rows, by construction. They
-previously came from separate exports and had drifted — the database contained
-4,839 Kepler objects the archive dispositions as false positives.
+previously came from separate exports built by different notebook runs, with no
+mechanism keeping them in step.
 
 After retraining, reload the database so the two stay in step:
 
@@ -470,6 +471,11 @@ All endpoints are prefixed with `/api/`.
 | `min_temp`, `max_temp` | `?min_temp=180&max_temp=310` | Equilibrium temperature range in K |
 | `q` | `?q=Kepler-227` | Case-insensitive planet-name search |
 | `hide_incomplete` | `?hide_incomplete=true` | Drop rows missing both `pl_eqt` and `pl_rade` |
+| `confirmed_only` | `?confirmed_only=true` | Exclude candidate-class objects — 11,378 → 4,515, habitable 126 → 45 |
+| `disposition` | `?disposition=CANDIDATE` | Exact archive disposition: `CONFIRMED`, `CANDIDATE`, `PC`, `CP`, `KP`, `APC` |
+
+A malformed numeric filter returns **400** with the offending parameter named,
+not a 500.
 
 ### Predictions
 
@@ -519,26 +525,104 @@ Access tokens live for **1 hour**, refresh tokens for **7 days**; token rotation
 
 ---
 
+## Data Provenance
+
+From 21,224 raw rows in the NASA Exoplanet Archive exports down to 11,378
+catalogued objects:
+
+| Mission | Raw rows | False positives | Duplicates | Unlabelable | Kept |
+|---|---|---|---|---|---|
+| K2 | 3,992 | 315 | 2,121 | 702 | **854** |
+| Kepler | 9,564 | 4,839 | 0 | 106 | **4,619** |
+| TESS | 7,668 | 1,290 | 0 | 473 | **5,905** |
+| **Total** | **21,224** | **6,444** | **2,121** | **1,281** | **11,378** |
+
+- **False positives** — objects dispositioned `FALSE POSITIVE`, `REFUTED`, `FP`
+  or `FA` are excluded. They are not planets.
+- **Duplicates** — the archive stores one row per literature reference, so a
+  well-studied planet appears many times. K2 collapses to the archive's own
+  preferred row via `default_flag`.
+- **Unlabelable** — the four labelling criteria cannot be resolved even after
+  physics derivation.
+
+### Confirmed vs candidate
+
+The catalogue keeps `CONFIRMED` **and** `CANDIDATE` objects (plus TESS `KP` and
+`APC`). This is the main reason it holds 11,378 objects where an earlier version
+of this project held 8,245 — that version filtered to `CONFIRMED` only and
+discarded every candidate.
+
+The trade-off is stated rather than buried: **81 of the 126 potentially-habitable
+objects are unconfirmed candidates**, mostly Kepler KOIs. A candidate can still
+be retracted. The `disposition` column is carried through to
+`data/processed/habitability_catalogue.csv` so the confirmed-only subset is
+reproducible: 4,515 objects, 45 of them potentially habitable.
+
+**The site can filter to confirmed planets only.** `Confirmed planets only` in
+the Explore filters panel maps to `?confirmed_only=true`, which drops the
+catalogue to 4,515 objects and the habitable count from 126 to 45. Candidate
+objects also carry a `Candidate` badge on their card. The raw archive value is
+exposed per planet as `disposition`.
+
+This was decided by measurement, not preference. `scripts/compare_populations.py`
+trains the identical pipeline on all three candidate populations:
+
+| Population | Objects | Habitable | Macro F1 | Fold SD | Habitable F1 | Habitable F1 SD |
+|---|---|---|---|---|---|---|
+| **confirmed + candidates** (shipped) | 11,378 | 126 | **0.983** | **0.012** | **0.964** | **0.027** |
+| confirmed only | 4,515 | 45 | 0.974 | 0.017 | 0.944 | 0.050 |
+| old pipeline's rule | 8,232 | 47 | 0.971 | 0.029 | 0.935 | 0.082 |
+
+The shipped population wins on every metric, and the margin that matters is the
+last column: with 126 habitable objects the rare-class estimate varies by 0.027
+across folds, against 0.082 for the old rule — a three-fold difference in how
+much the only number anyone cares about wobbles depending on which fold an
+object lands in.
+
+Note also that **the old catalogue was not confirmed-only**. It applied
+`CONFIRMED` to K2 and Kepler but kept TESS `PC` — *Planet Candidate* — so 4,265
+of its 8,245 objects were already candidates. It was inconsistent rather than
+strict, which is why it scores worst here. Regenerate the table any time with
+`python scripts/compare_populations.py`.
+
+---
+
 ## Habitability Classification
 
-The classification system maps real astrophysical criteria onto three classes:
+The class of every catalogued object comes from one documented rule, defined
+once as `LABEL_RULE` in [`backend/api/physics.py`](backend/api/physics.py) and
+applied identically to the training targets and to the catalogue the site
+displays.
 
-**POTENTIALLY_HABITABLE**
+**POTENTIALLY_HABITABLE** — *all four* criteria must hold:
 - Planet radius: 0.5 – 2.0 R⊕ (rocky, not a gas giant)
 - Insolation flux: 0.25 – 4.0 S⊕ (conservative habitable zone)
 - Equilibrium temperature: 180 – 310 K
 - Orbital period: 10 – 500 days
 
-**HABITABILITY_ZONE**
-- In or near the habitable zone but outside strict Earth-like size/temperature bounds
-- May be a super-Earth, mini-Neptune, or have partial observational data
+**HABITABILITY_ZONE** — *either* criterion:
+- Insolation flux: 0.25 – 4.0 S⊕, **or**
+- Equilibrium temperature: 200 – 350 K
 
-**NON_HABITABLE**
-- Equilibrium temperature > 400 K or < 150 K
-- Planet radius > 4.0 R⊕ (gas giant)
-- Extreme insolation or orbital parameters
+**NON_HABITABLE** — everything else.
 
-> Planets with missing observational data are still classified using available parameters and physics-based defaults. Such planets almost always resolve to `NON_HABITABLE` due to defaulting missing values to near-zero similarity. They are retained in the dataset as real discovered candidates whose characterisation is ongoing.
+> **This is a physics proxy, not observed ground truth.** No exoplanet has
+> confirmed habitability. The classifier is trained on the same observables this
+> rule consumes, so it is a learned surrogate of it — see
+> [ML Models](#ml-models).
+
+> **"Potentially habitable" is not the same as "confirmed planet".** 81 of the
+> 126 objects in that class are candidate-class detections. Use
+> `?confirmed_only=true`, or the toggle in the UI, to restrict to the 45 that
+> are archive-confirmed.
+
+> **Missing measurements are derived, not defaulted.** Where a quantity is
+> absent it is computed from first principles — semi-major axis from Kepler's
+> third law, luminosity from Stefan–Boltzmann, insolation from the inverse-square
+> law, equilibrium temperature from insolation. Every derived value is flagged,
+> and those flags are model inputs. Objects whose four labelling criteria cannot
+> be resolved even after derivation are excluded rather than assigned a guessed
+> class.
 
 ---
 

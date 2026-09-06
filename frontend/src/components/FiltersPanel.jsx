@@ -14,7 +14,8 @@ const FiltersPanel = ({ onFiltersChange, onReset }) => {
     max_temp: '',
     min_radius: '',
     max_radius: '',
-    hide_incomplete: false
+    hide_incomplete: false,
+    confirmed_only: false
   });
 
   const [isExpanded, setIsExpanded] = useState({
@@ -70,7 +71,8 @@ const FiltersPanel = ({ onFiltersChange, onReset }) => {
       max_temp: '',
       min_radius: '',
       max_radius: '',
-      hide_incomplete: false
+      hide_incomplete: false,
+      confirmed_only: false
     });
     if (onReset) {
       onReset();
@@ -171,11 +173,12 @@ const FiltersPanel = ({ onFiltersChange, onReset }) => {
                   </option>
                 ))}
               </select>
-              {/* Score reference */}
+              {/* Score reference - these bands are the backend's calibrated
+                  classification thresholds (0.24 / 0.71), not display-only values */}
               <div className="flex justify-between text-xs text-slate-500 px-1">
-                <span className="text-red-400/70">&lt;15% Non-Hab.</span>
-                <span className="text-yellow-400/70">~55% HZ</span>
-                <span className="text-green-400/70">&gt;85% Pot. Hab.</span>
+                <span className="text-red-400/70">&lt;24% Non-Hab.</span>
+                <span className="text-yellow-400/70">24-70% HZ</span>
+                <span className="text-green-400/70">&ge;71% Pot. Hab.</span>
               </div>
 
               {/* Hide incomplete data toggle */}
@@ -194,6 +197,31 @@ const FiltersPanel = ({ onFiltersChange, onReset }) => {
                   Hide incomplete data
                 </span>
               </label>
+
+              {/* Confirmed-only toggle.
+                  81 of the 126 potentially-habitable objects are unconfirmed
+                  candidates, so this changes the habitable count from 126 to 45. */}
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  onClick={() => handleFilterChange('confirmed_only', !filters.confirmed_only)}
+                  className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
+                    filters.confirmed_only ? 'bg-cyan-500' : 'bg-slate-600'
+                  } flex items-center px-0.5`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                    filters.confirmed_only ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </div>
+                <span className="text-xs text-slate-400 group-hover:text-slate-300">
+                  Confirmed planets only
+                </span>
+              </label>
+              {filters.confirmed_only && (
+                <p className="text-[11px] leading-snug text-slate-500 pl-11 -mt-1">
+                  Excludes candidate-class objects. The archives have not yet
+                  confirmed these as planets.
+                </p>
+              )}
             </div>
           )}
         </div>

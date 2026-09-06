@@ -34,52 +34,86 @@ def planet_list(request):
     List all exoplanets with pagination.
     
     GET /api/planets/
-    
+
     Query Parameters:
     - page: Page number (default: 1)
     - page_size: Results per page (default: 50, max: 200)
     - mission: Filter by mission code (k2, kepler, tess)
     - habitability: Filter by habitability class
+    - confirmed_only: true to exclude candidate-class objects
+    - disposition: Exact archive disposition (CONFIRMED, CANDIDATE, PC, CP, KP, APC)
     - min_radius, max_radius: Radius range (Earth radii)
     - min_temp, max_temp: Temperature range (K)
     - q: Search by planet name
+    - hide_incomplete: true to require both pl_eqt and pl_rade
     """
     queryset = Exoplanet.objects.select_related('mission').all()
-    
+
+    def numeric(name):
+        """Parse a numeric filter, or raise ValueError naming the bad parameter.
+
+        These were previously bare float() calls, so `?min_radius=abc` raised an
+        unhandled ValueError and returned 500 where it should return 400.
+        """
+        raw = request.query_params.get(name)
+        if raw in (None, ''):
+            return None
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            raise ValueError(name)
+
+    try:
+        min_radius = numeric('min_radius')
+        max_radius = numeric('max_radius')
+        min_temp = numeric('min_temp')
+        max_temp = numeric('max_temp')
+    except ValueError as exc:
+        return Response(
+            {'error': 'Invalid filter value',
+             'detail': f"'{exc.args[0]}' must be a number."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def flag(name):
+        return request.query_params.get(name, '').lower() in ('true', '1', 'yes')
+
     # Apply filters
     mission = request.query_params.get('mission')
     if mission:
         queryset = queryset.filter(mission__name__iexact=mission)
-    
+
     habitability = request.query_params.get('habitability')
     if habitability:
         queryset = queryset.filter(habitability_class__iexact=habitability)
-    
-    min_radius = request.query_params.get('min_radius')
-    if min_radius:
-        queryset = queryset.filter(pl_rade__gte=float(min_radius))
-    
-    max_radius = request.query_params.get('max_radius')
-    if max_radius:
-        queryset = queryset.filter(pl_rade__lte=float(max_radius))
-    
-    min_temp = request.query_params.get('min_temp')
-    if min_temp:
-        queryset = queryset.filter(pl_eqt__gte=float(min_temp))
-    
-    max_temp = request.query_params.get('max_temp')
-    if max_temp:
-        queryset = queryset.filter(pl_eqt__lte=float(max_temp))
-    
+
+    # Restrict to archive-confirmed planets, excluding candidate-class objects.
+    # 81 of the 126 potentially-habitable objects are candidates, so this
+    # materially changes what the page shows - which is the point of having it.
+    if flag('confirmed_only'):
+        queryset = queryset.filter(is_confirmed=True)
+
+    disposition = request.query_params.get('disposition')
+    if disposition:
+        queryset = queryset.filter(disposition__iexact=disposition)
+
+    if min_radius is not None:
+        queryset = queryset.filter(pl_rade__gte=min_radius)
+    if max_radius is not None:
+        queryset = queryset.filter(pl_rade__lte=max_radius)
+    if min_temp is not None:
+        queryset = queryset.filter(pl_eqt__gte=min_temp)
+    if max_temp is not None:
+        queryset = queryset.filter(pl_eqt__lte=max_temp)
+
     search_query = request.query_params.get('q')
     if search_query:
         queryset = queryset.filter(planet_name__icontains=search_query)
-    
-    # Hide planets with incomplete key parameters (both pl_eqt and pl_rade are null)
-    hide_incomplete = request.query_params.get('hide_incomplete', '').lower() in ('true', '1', 'yes')
-    if hide_incomplete:
+
+    # Hide planets with incomplete key parameters (both pl_eqt and pl_rade null)
+    if flag('hide_incomplete'):
         queryset = queryset.filter(pl_eqt__isnull=False, pl_rade__isnull=False)
-    
+
     # Order by planet name
     queryset = queryset.order_by('planet_name')
     
@@ -173,10 +207,31 @@ def planet_stats(request):
         avg_period=Avg('pl_orbper')
     )
     
+    # Confirmed vs candidate provenance. Surfaced because a majority of the
+    # potentially-habitable objects are candidate-class, and any headline
+    # habitable count should be readable alongside that fact.
+    confirmed_total = Exoplanet.objects.filter(is_confirmed=True).count()
+    confirmed_habitable = Exoplanet.objects.filter(
+        is_confirmed=True, habitability_class='POTENTIALLY_HABITABLE').count()
+    all_habitable = Exoplanet.objects.filter(
+        habitability_class='POTENTIALLY_HABITABLE').count()
+
+    disposition_stats = {
+        item['disposition'] or 'UNKNOWN': item['count']
+        for item in Exoplanet.objects.values('disposition').annotate(count=Count('id'))
+    }
+
     stats = {
         'total_planets': total_planets,
         'missions': mission_stats,
         'habitability_breakdown': habitability_stats,
+        'provenance': {
+            'confirmed': confirmed_total,
+            'candidate': total_planets - confirmed_total,
+            'confirmed_potentially_habitable': confirmed_habitable,
+            'candidate_potentially_habitable': all_habitable - confirmed_habitable,
+            'by_disposition': disposition_stats,
+        },
         'avg_radius': round(averages['avg_radius'], 3) if averages['avg_radius'] else None,
         'avg_temperature': round(averages['avg_temp'], 2) if averages['avg_temp'] else None,
         'avg_orbital_period': round(averages['avg_period'], 2) if averages['avg_period'] else None

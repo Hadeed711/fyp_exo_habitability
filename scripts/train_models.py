@@ -22,8 +22,17 @@ Design decisions, and why
    7th most important feature. Those columns cannot cause habitability; the
    model was reading dataset structure.
 
-4. FALSE POSITIVES ARE DROPPED. The old pipeline trained on 4,839 Kepler
-   objects dispositioned FALSE POSITIVE, i.e. things that are not planets.
+4. DISPOSITION HANDLING IS WIDER, NOT STRICTER. The old pipeline kept only
+   objects dispositioned CONFIRMED and discarded every candidate. This one keeps
+   CONFIRMED and CANDIDATE (plus TESS's KP and APC) and drops only false
+   positives, refuted objects and false alarms. That is the main reason the
+   catalogue grew from 8,245 to 11,378 objects, and why the potentially-habitable
+   class grew from 47 to 126.
+
+   The trade-off is explicit: 81 of those 126 are unconfirmed candidates. For a
+   screening tool that is the right population - the point is to flag objects
+   worth following up - but the `disposition` column is carried through to the
+   catalogue so any consumer can restrict to confirmed planets.
 
 5. ONE UNIFIED MODEL IS THE DEFAULT. Because the feature space is now
    identical across missions, splitting the data by mission only fragments an

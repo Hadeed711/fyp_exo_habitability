@@ -1,0 +1,4 @@
+population,objects,habitable,macro_f1,macro_f1_fold_sd,habitable_f1,habitable_f1_fold_sd,worst_fold_habitable_f1
+confirmed + candidates (SHIPPED),11378,126,0.9827,0.0117,0.9639,0.0265,0.92
+confirmed only,4515,45,0.9736,0.0169,0.9438,0.0497,0.8889
+"old pipeline rule (CONFIRMED for K2/Kepler, PC+CP for TESS)",8232,47,0.971,0.0294,0.9348,0.0821,0.8235

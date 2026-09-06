@@ -6,9 +6,12 @@ exports:
 ```bash
 python scripts/train_models.py      # models, artifacts, labelled catalogue, reports
 python scripts/calibrate_blend.py   # blend weight and class thresholds
+python scripts/verify_docs.py       # confirm every documented figure still matches
 ```
 
-Neither script needs Django, a database, or network access.
+None of these need Django, a database, or network access. `verify_docs.py`
+exits non-zero if any number quoted in the documentation has drifted from the
+artifacts — run it after every retrain.
 
 ---
 
@@ -164,8 +167,25 @@ From 21,224 raw archive rows to 11,378 catalogued objects:
 | TESS | 7,668 | 1,290 | 0 | 473 | 5,905 |
 
 - **False positives** are objects the archives disposition as `FALSE POSITIVE`,
-  `REFUTED`, `FP` or `FA`. They are not planets. The previous pipeline trained
-  on all 4,839 of Kepler's.
+  `REFUTED`, `FP` or `FA`. They are not planets. The previous pipeline also
+  excluded these — it filtered to `CONFIRMED` only, which discarded candidates
+  as well.
+- **Candidates are kept.** `CONFIRMED` and `CANDIDATE` both qualify (plus TESS
+  `KP`/`APC`). This was tested rather than assumed —
+  `scripts/compare_populations.py` trains the identical pipeline on three
+  populations:
+
+| Population | Objects | Habitable | Macro F1 | Fold SD | Habitable F1 | Habitable F1 SD |
+|---|---|---|---|---|---|---|
+| **confirmed + candidates** (shipped) | 11,378 | 126 | **0.983** | **0.012** | **0.964** | **0.027** |
+| confirmed only | 4,515 | 45 | 0.974 | 0.017 | 0.944 | 0.050 |
+| old pipeline's rule | 8,232 | 47 | 0.971 | 0.029 | 0.935 | 0.082 |
+
+  The shipped population wins throughout, and most importantly the rare-class
+  estimate is three times more stable across folds. The old pipeline's rule
+  scores worst because it was *inconsistent* — `CONFIRMED` for K2 and Kepler but
+  TESS `PC` (Planet Candidate) — so it combined a small positive class with
+  mixed provenance. Results are in `reports/population_comparison.csv`.
 - **Duplicates** are repeated parameter sets for the same object; K2 is
   collapsed to the archive's `default_flag` row.
 - **Unlabelable** objects are those whose four labelling criteria cannot be

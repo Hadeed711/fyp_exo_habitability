@@ -88,6 +88,17 @@ const PlanetCard = ({ planet, onClick }) => {
           <span className={`inline-block px-2 py-0.5 rounded text-xs border flex-shrink-0 ${getMissionColor()}`}>
             {missionName || 'Unknown'}
           </span>
+          {/* Provenance: candidate-class objects are not yet confirmed planets.
+              Only flagged when false, so confirmed planets stay visually clean. */}
+          {planet.is_confirmed === false && (
+            <span
+              className="inline-block px-2 py-0.5 rounded text-xs border flex-shrink-0
+                         bg-slate-700/40 border-slate-600 text-slate-400"
+              title={`Archive disposition: ${planet.disposition || 'candidate'} - not yet a confirmed planet`}
+            >
+              Candidate
+            </span>
+          )}
           {hasPartialData && (
             <span className="flex items-center gap-1 text-amber-400 text-xs flex-shrink-0">
               <AlertCircle className="w-3 h-3" />

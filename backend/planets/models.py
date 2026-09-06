@@ -74,6 +74,27 @@ class Exoplanet(models.Model):
     # Additional flags
     in_habitable_zone = models.BooleanField(default=False, db_index=True)
     potentially_habitable = models.BooleanField(default=False, db_index=True)
+
+    # Archive disposition / provenance
+    #
+    # `disposition` stores the raw archive value, which differs per mission:
+    #   K2 / Kepler : CONFIRMED, CANDIDATE
+    #   TESS        : CP (confirmed planet), KP (known planet),
+    #                 PC (planet candidate), APC (ambiguous planet candidate)
+    # False positives and refuted objects are filtered out upstream and never
+    # reach this table.
+    #
+    # `is_confirmed` collapses that into one mission-agnostic boolean so the
+    # API and UI can filter without knowing each mission's vocabulary. Storing
+    # it rather than deriving it per query keeps the filter indexable.
+    disposition = models.CharField(
+        max_length=20, blank=True, db_index=True,
+        help_text="Raw archive disposition (CONFIRMED, CANDIDATE, PC, CP, KP, APC)"
+    )
+    is_confirmed = models.BooleanField(
+        default=False, db_index=True,
+        help_text="True for CONFIRMED / CP / KP; False for candidate-class objects"
+    )
     
     # Earth Similarity Index
     esi_overall = models.FloatField(null=True, blank=True, help_text="Overall ESI score")
@@ -90,6 +111,7 @@ class Exoplanet(models.Model):
             models.Index(fields=['mission', 'habitability_class']),
             models.Index(fields=['potentially_habitable']),
             models.Index(fields=['planet_name']),
+            models.Index(fields=['is_confirmed', 'habitability_class']),
         ]
     
     def __str__(self):

@@ -8,9 +8,9 @@ by scripts/train_models.py - and populates the missions and exoplanets tables.
 Why one file
 ------------
 Previously the site loaded three per-mission CSVs produced by a notebook run,
-while the models were trained from a separate export. The two drifted: the
-catalogue contained 4,839 Kepler objects dispositioned FALSE POSITIVE, and its
-habitability labels came from median-imputed physics the model never saw.
+while the models were trained from a separate export, with nothing keeping the
+two in step. Their habitability labels also came from median-imputed physics
+rather than the derived values the model now sees.
 
 Now the training pipeline writes exactly one labelled catalogue, and this
 script is the only thing that reads it. The classes shown on the site and the
@@ -76,6 +76,11 @@ FLOAT_FIELDS = [
 
 VALID_CLASSES = {'NON_HABITABLE', 'HABITABILITY_ZONE', 'POTENTIALLY_HABITABLE'}
 
+# Archive dispositions that mean "this is a real, confirmed planet".
+# K2/Kepler say CONFIRMED; TESS says CP (confirmed planet) or KP (known planet).
+# Everything else surviving the upstream filter is candidate-class.
+CONFIRMED_DISPOSITIONS = {'CONFIRMED', 'CP', 'KP'}
+
 
 def sync_missions():
     """Create or update the three mission rows."""
@@ -114,6 +119,8 @@ def build_planet(row, missions):
     if habitability_class not in VALID_CLASSES:
         return None
 
+    disposition = str(row.get('disposition') or '').strip().upper()[:20]
+
     planet = Exoplanet(
         mission=mission,
         planet_name=str(row['planet_name']).strip(),
@@ -122,6 +129,8 @@ def build_planet(row, missions):
         potentially_habitable=bool(row.get('potentially_habitable', False)),
         stellar_type=str(row.get('stellar_type') or '')[:10],
         discovery_year=clean_int(row.get('discovery_year')),
+        disposition=disposition,
+        is_confirmed=disposition in CONFIRMED_DISPOSITIONS,
     )
     for field in FLOAT_FIELDS:
         setattr(planet, field, clean_float(row.get(field)))
@@ -191,6 +200,11 @@ def load_catalogue(replace=False, dry_run=False):
         print(f"  {label:20} : {count}")
     print(f"  in habitable zone    : "
           f"{Exoplanet.objects.filter(in_habitable_zone=True).count()}")
+    confirmed = Exoplanet.objects.filter(is_confirmed=True).count()
+    print(f"  confirmed planets    : {confirmed}")
+    print(f"  candidate-class      : {Exoplanet.objects.count() - confirmed}")
+    print(f"  confirmed + habitable: "
+          f"{Exoplanet.objects.filter(is_confirmed=True, habitability_class='POTENTIALLY_HABITABLE').count()}")
     return 0
 
 

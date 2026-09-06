@@ -72,11 +72,18 @@ flags (`default_flag`, `pl_nnotes`). In the K2 model, `sy_vmagerr1` — the
 uncertainty on a visual magnitude — ranked **7th** by importance. Nothing about
 an error bar on a brightness measurement can cause habitability.
 
-### Trained on objects that are not planets
+### A far smaller training population
 
-The Kepler model was trained on all 4,839 KOIs dispositioned `FALSE POSITIVE`,
-plus 1,290 TESS false positives and alarms, and they were served on the website
-as exoplanets.
+These models were trained on **confirmed objects only** — the notebooks filter
+with `df_clean[df_clean['koi_disposition'] == 'CONFIRMED']` — which left 2,742
+Kepler rows, 1,937 K2 rows and 4,935 TESS rows. Candidates were discarded
+entirely.
+
+That is defensible in itself, but it left the minority class critically small:
+just **47 potentially-habitable objects** across all three missions, of which
+Kepler contributed 32 and K2 only 5. No evaluation protocol can produce a
+trustworthy estimate for a class that size, which is the root cause of the
+contradictory metrics described below.
 
 ### Evaluation that could not support its own conclusions
 

@@ -79,7 +79,7 @@ each other.
 | Coordinates, magnitudes, error columns | Excluded |
 | 270 / 130 / 44 mission-specific features | 25 canonical features from `backend/api/physics.py`, shared with the serving path |
 | Missing values → `0.0` | Derived from first principles, and flagged as derived |
-| False positives kept | 6,444 dropped — they are not planets |
+| `CONFIRMED` only, candidates discarded | `CONFIRMED` + `CANDIDATE` kept (plus TESS `KP`/`APC`); only false positives, refuted objects and false alarms dropped |
 | Single 20% split | 5-fold out-of-fold; every object scored by a model that never saw it |
 | Accuracy as headline | Macro F1, plus degraded-input and leave-one-mission-out evaluation |
 | Three mission models | One pooled model (per-mission kept as an ablation) |

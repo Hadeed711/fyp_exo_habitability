@@ -33,7 +33,7 @@ class ExoplanetListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'planet_name', 'mission_name',
             'pl_rade', 'pl_eqt', 'pl_insol', 'pl_orbper',
-            'habitability_class', 'created_at'
+            'habitability_class', 'disposition', 'is_confirmed', 'created_at'
         ]
 
 

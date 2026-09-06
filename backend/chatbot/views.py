@@ -59,8 +59,13 @@ ASTRONOMY & HABITABILITY SCIENCE:
 THE DATASET:
 - 11,378 objects from 3 NASA missions: K2 (854), Kepler (4,619), TESS (5,905)
 - Built from the raw NASA archive exports with three filters applied:
-  * objects dispositioned FALSE POSITIVE / FALSE ALARM are dropped (they are not planets) —
-    this removes 4,839 Kepler, 1,290 TESS and 315 K2 rows
+  * objects dispositioned FALSE POSITIVE / FALSE ALARM are dropped (they are not
+    planets) — this removes 4,839 Kepler, 1,290 TESS and 315 K2 raw rows
+  * CONFIRMED and CANDIDATE objects are both kept (plus TESS KP/APC). The earlier
+    version of this project kept CONFIRMED only, which is why the catalogue grew
+    from 8,245 to 11,378 and the habitable class from 47 to 126. 81 of those 126
+    are unconfirmed candidates; the `disposition` field is stored per object so
+    they can be filtered. Say this if asked about the candidate/confirmed split.
   * duplicate parameter sets collapse to the archive's preferred row (2,121 dropped from K2)
   * objects whose habitability criteria cannot be resolved even after physics derivation are
     excluded rather than guessed at (1,281 across all missions)
