@@ -1,157 +1,212 @@
 # Trained Models
 
-Serialized classifiers and their evaluation reports. Loaded at runtime by the
-`HabitabilityScorer` singleton in `backend/predictions/ai_service.py`, which
-reads this directory via `MODELS_DIR` in `backend/backend/settings.py`.
+Everything in this directory is generated. To rebuild from the raw NASA archive
+exports:
 
-> **`models/` holds the classifiers. `artifacts/` holds the preprocessors.**
-> The two are easy to confuse — a model here is useless without the matching
-> scaler and encoder from `artifacts/<mission>/`.
+```bash
+python scripts/train_models.py      # models, artifacts, labelled catalogue, reports
+python scripts/calibrate_blend.py   # blend weight and class thresholds
+```
+
+Neither script needs Django, a database, or network access.
 
 ---
 
-## Contents
-
-| File | Mission | Algorithm | Status |
-|---|---|---|---|
-| `kepler_xgboost_model.pkl` | Kepler | XGBoost | **In production** |
-| `k2_xgboost_model.pkl` | K2 | XGBoost | **In production** |
-| `tess_random_forest_model.pkl` | TESS | Random Forest | **In production** |
-| `kepler_random_forest_model.pkl` | Kepler | Random Forest | Runner-up, kept for comparison |
-| `k2_random_forest_model.pkl` | K2 | Random Forest | Runner-up, kept for comparison |
-| `tess_xgboost_model.pkl` | TESS | XGBoost | Runner-up, kept for comparison |
-| `ensemble_model.pkl` | — | Combined | Experimental, not wired into the API |
-
-### Evaluation reports
+## What ships
 
 | File | Contents |
 |---|---|
-| `best_models_summary.csv` | One winning row per mission — the headline figures |
-| `k2_model_performance.csv` | K2: XGBoost vs Random Forest |
-| `kepler_model_performance.csv` | Kepler: XGBoost vs Random Forest |
-| `tess_model_performance.csv` | TESS: XGBoost vs Random Forest |
-| `model_evaluation_report.csv` | **Per-class** precision / recall / F1 / ROC-AUC |
+| `unified_model.pkl` | **Default.** Trained on all 11,378 objects pooled across the three missions. |
+| `k2_model.pkl`, `kepler_model.pkl`, `tess_model.pkl` | Per-mission ablations. Selectable via the API's `mission` parameter; not the default. |
+| `model_performance.csv` | Headline out-of-fold macro F1 per model set. |
+| `reports/` | Per-class metrics, degraded-input robustness, leave-one-mission-out transfer, blend calibration, data-filtering counts. |
+
+Matching scalers, label encoders and metadata live in `artifacts/<name>/`. The
+metadata carries the feature list, the class distribution, the full evaluation
+record and the labelling rule, and is also written as JSON for reading without
+Python.
+
+`/api/models/report/` serves this metadata directly. **Any page or document
+quoting a performance figure should read it from there** rather than copying a
+number, so published claims cannot drift from the artefacts.
 
 ---
 
-## Why three models instead of one
+## Read this before quoting any accuracy figure
 
-Each mission's instrument yields a different feature space, and they do not
-reconcile into a single table: K2 exposes 270 usable features, Kepler 130, TESS
-only 44. Training one model on the intersection would discard most of what
-Kepler and K2 measured. Training per mission keeps every mission's full feature
-set and prevents one mission's observational bias from dominating the others.
+The habitability labels are a **documented physics rule**
+(`backend/api/physics.py`, `LABEL_RULE`), not observed ground truth. No
+exoplanet has confirmed habitability, so there is nothing to observe.
 
-| Mission | Features | Total rows | Train / Val / Test |
-|---|---|---|---|
-| K2 | 270 | 1,937 | 1,162 / 387 / 388 |
-| Kepler | 130 | 2,742 | 1,645 / 548 / 549 |
-| TESS | 44 | 4,935 | 2,961 / 987 / 987 |
+The classifier is trained on the same observables that rule consumes. It is
+therefore a **learned surrogate** of the rule, and a high in-distribution score
+means it reproduces the rule faithfully. That is not a scientific discovery and
+must not be presented as one.
 
-Splits are 60 / 20 / 20, stratified. Feature names, class labels and split
-sizes are recorded in `artifacts/<mission>/<mission>_habitability_metadata.pkl`.
+The two results that demonstrate capability the rule does not have are the
+degraded-input table and the leave-one-mission-out table below.
 
 ---
 
-## Headline accuracy is misleading — read the per-class report
+## Headline performance
 
-`best_models_summary.csv` reports:
+Out-of-fold, 5-fold stratified: every object is scored by a model that never saw
+it during training. Masking augmentation and feature scaling are fitted inside
+each fold, never across.
 
-| Mission | Best model | Accuracy | Weighted F1 |
-|---|---|---|---|
-| Kepler | XGBoost | 100% | 1.000 |
-| TESS | Random Forest | 100% | 1.000 |
-| K2 | XGBoost | 99.2% | 0.991 |
+| Model set | Estimator | Objects | OOF macro F1 | Fold SD |
+|---|---|---|---|---|
+| **unified** | XGBoost | 11,378 | **0.983** | 0.012 |
+| kepler | Random Forest | 4,619 | 0.989 | 0.006 |
+| tess | XGBoost | 5,905 | 0.937 | 0.072 |
+| k2 | Random Forest | 854 | 0.767 | 0.174 |
 
-These are **weighted across all three classes**, and the class distribution is
-severely skewed:
+Per-class, unified model:
 
-| Mission | NON_HABITABLE | HABITABILITY_ZONE | POTENTIALLY_HABITABLE |
-|---|---|---|---|
-| K2 | 1,876 | 56 | **5** |
-| Kepler | 2,574 | 136 | **32** |
-| TESS | 4,776 | 149 | **10** |
+| Class | Precision | Recall | F1 | Objects |
+|---|---|---|---|---|
+| POTENTIALLY_HABITABLE | 0.976 | 0.952 | 0.964 | 126 |
+| HABITABILITY_ZONE | 0.981 | 0.989 | 0.985 | 628 |
+| NON_HABITABLE | 1.000 | 0.999 | 0.999 | 10,624 |
 
-A classifier that answered NON_HABITABLE for every K2 planet would already score
-about 97%. The weighted figures are dominated by the majority class.
+Macro F1, not accuracy: 93% of objects are non-habitable, so accuracy would be
+dominated by the majority class and would say nothing about the class anyone
+cares about.
 
-`model_evaluation_report.csv` shows what happens on the class that actually
-matters:
-
-| Mission | Model | Class | Precision | Recall | F1 | Support |
-|---|---|---|---|---|---|---|
-| K2 | XGBoost | POTENTIALLY_HABITABLE | 0.00 | 0.00 | **0.00** | 1 |
-| K2 | XGBoost | NON_HABITABLE | 0.09 | 1.00 | 0.17 | 11 |
-| TESS | Random Forest | POTENTIALLY_HABITABLE | 0.50 | 0.50 | **0.50** | 2 |
-| TESS | Random Forest | NON_HABITABLE | 0.63 | 0.40 | 0.49 | 30 |
-
-With one or two positive samples in a test split, these figures carry almost no
-statistical weight in either direction — they are not evidence the models work
-on the minority class, nor firm evidence they fail.
-
-> Note: `best_models_summary.csv` and `model_evaluation_report.csv` disagree on
-> K2's overall numbers (99.2% vs 0.72 recall). They come from different
-> evaluation runs, and the discrepancy has not been reconciled. Treat
-> `model_evaluation_report.csv` as the more informative of the two because it
-> breaks results out per class.
-
-### What this means for the application
-
-This is the direct reason the production score is
-`0.10 × ML + 0.90 × physics` rather than trusting the classifier. The ML term
-contributes a useful nudge; the physics term is what keeps Earth-like inputs
-above 90% and obviously hostile ones (a hot Jupiter scores 0.00) near zero.
-Note it does not separate Earth from Venus or Mars — measured on the current
-models, Earth 0.96, Mars 0.92, Venus 0.74, all POTENTIALLY_HABITABLE. Full rationale in
-[PROJECT_UNDERSTANDING_GUIDE.md](../PROJECT_UNDERSTANDING_GUIDE.md#7-habitability-scoring-system).
+The K2 ablation's 0.767 with a fold standard deviation of 0.174 is exactly why
+the pooled model is the default — K2 alone contains 7 potentially-habitable
+objects, which cannot support a stable estimate.
 
 ---
 
-## Regenerating
+## Where the ML actually earns its place
 
-Models are produced by the training notebooks, one per mission:
+**Degraded inputs.** Real catalogue rows are incomplete. Observables are
+withheld at random and both the model and the labelling rule are re-evaluated:
 
-| Notebook | Produces |
-|---|---|
-| `notebooks/04a_ml_k2_mission.ipynb` | `k2_*.pkl` + `artifacts/k2/` |
-| `notebooks/04b_ml_kepler_mission.ipynb` | `kepler_*.pkl` + `artifacts/kepler/` |
-| `notebooks/04c_ml_tess_mission.ipynb` | `tess_*.pkl` + `artifacts/tess/` |
-| `notebooks/05_model_comparison.ipynb` | `best_models_summary.csv`, `model_evaluation_report.csv`, `ensemble_model.pkl` |
+| Observables withheld | Model accuracy | Rule accuracy | Rule undefined |
+|---|---|---|---|
+| 0 | 1.000 | 1.000 | 0% |
+| 1 | 0.997 | 0.725 | 27.5% |
+| 2 | 0.994 | 0.412 | 58.7% |
+| 3 | 0.986 | 0.170 | 83.0% |
+| 4 | 0.976 | 0.048 | 95.2% |
 
-After retraining, verify before deploying:
+With four of eight observables missing the rule cannot be evaluated at all for
+95% of objects, while the model still classifies 97.6% correctly. It manages
+this because it is trained on deliberately masked rows and because the
+`imputed_*` features tell it which of its inputs were measured and which were
+derived.
 
-```bash
-pytest                  # loads every .pkl; asserts accuracy only for Kepler
-python test_models.py   # manual sanity check — see TEST_MODELS_README.md
+**Leave-one-mission-out.** Train on two missions, evaluate on the third:
+
+| Held out | Macro F1 | Accuracy | Objects |
+|---|---|---|---|
+| tess | 0.942 | 0.996 | 5,905 |
+| k2 | 0.899 | 0.993 | 854 |
+| kepler | 0.752 | 0.979 | 4,619 |
+
+Each mission has a different instrument, detection bias and period
+distribution, so a model that had memorised dataset structure rather than
+physics would fail here.
+
+---
+
+## Features
+
+25 columns, defined once in `backend/api/physics.py` as `FEATURE_ORDER` and
+imported by **both** the training pipeline and the serving path. That shared
+import is what makes train/serve skew structurally impossible: every feature is
+computable from the nine observables the API accepts, so nothing is ever
+zero-filled at inference.
+
+- Nine observables: planet radius, equilibrium temperature, insolation flux,
+  orbital period, semi-major axis, eccentricity, stellar temperature, radius, mass
+- Derived stellar luminosity
+- `log1p` transforms of period, distance and flux
+- Planet/star radius ratio, orbit size in stellar radii
+- Continuous habitable-zone position (Kopparapu et al. 2013 boundaries)
+- Nine `imputed_*` flags marking which inputs were derived rather than measured
+
+**Deliberately excluded**, and why:
+
+- `in_hz_conservative`, `in_hz_optimistic`, `is_rocky`, `is_super_earth`,
+  `is_earth_sized` — each restates a clause of the labelling rule. Handing the
+  model the answer produced a previously-reported 100% accuracy that meant
+  nothing.
+- `radius_similarity`, `temp_similarity`, `insol_similarity` — strictly
+  monotone functions of quantities already present, so they add no information.
+  They do add a failure mode: all three saturate at exactly 1.0 for Earth and no
+  catalogue object reaches 1.0, so the trees had never seen that corner and
+  extrapolated Earth itself to the wrong class. They remain in
+  `backend/api/scoring.py`, where the physics score is closed-form and
+  extrapolation is not a concern.
+- Sky coordinates, photometric magnitudes, measurement-uncertainty columns,
+  bookkeeping flags — these cannot cause habitability. In an earlier K2 model
+  `sy_vmagerr1`, the uncertainty on a visual magnitude, ranked 7th by
+  importance, which is a clear sign the model was reading dataset structure.
+
+Top features of the shipped unified model: `pl_eqt` (0.234), `pl_rade` (0.146),
+`imputed_pl_rade` (0.109), `pl_insol` (0.097). The provenance flags ranking
+highly is expected and desirable — knowing whether a radius was measured is
+genuinely informative.
+
+---
+
+## Data filtering
+
+From 21,224 raw archive rows to 11,378 catalogued objects:
+
+| Mission | Raw rows | False positives dropped | Duplicates dropped | Unlabelable | Kept |
+|---|---|---|---|---|---|
+| K2 | 3,992 | 315 | 2,121 | 702 | 854 |
+| Kepler | 9,564 | 4,839 | 0 | 106 | 4,619 |
+| TESS | 7,668 | 1,290 | 0 | 473 | 5,905 |
+
+- **False positives** are objects the archives disposition as `FALSE POSITIVE`,
+  `REFUTED`, `FP` or `FA`. They are not planets. The previous pipeline trained
+  on all 4,839 of Kepler's.
+- **Duplicates** are repeated parameter sets for the same object; K2 is
+  collapsed to the archive's `default_flag` row.
+- **Unlabelable** objects are those whose four labelling criteria cannot be
+  resolved even after physics derivation. They are excluded rather than guessed
+  at.
+
+Exact counts are regenerated into `reports/data_filtering.json` on every run.
+
+---
+
+## Blend calibration
+
+The displayed habitability score is:
+
+```
+score = 0.60 * ml_score + 0.40 * physics_score
 ```
 
-Note that `pytest` covers the raw classifiers only. The hybrid scoring layer in
-`backend/api/habitability_scorer.py` has no automated tests, so check a few
-predictions through `/api/predict/` by hand as well.
+The weight and the two class thresholds (0.24 / 0.71) are **selected by
+measurement**, not by hand. `scripts/calibrate_blend.py` sweeps them to maximise
+macro F1 against the physics label across all 11,378 objects, using out-of-fold
+classifier probabilities so the weight is not tuned against memorised answers.
+Every weight is scored at its own best thresholds, since holding thresholds
+fixed at one weight's optimum biases the comparison.
 
-Scalers and encoders must be regenerated alongside the models. A model paired
-with a stale scaler from `artifacts/` produces silently wrong predictions rather
-than an error.
-
----
-
-## Loading a model directly
-
-```python
-import pickle
-
-with open('models/kepler_xgboost_model.pkl', 'rb') as f:
-    model = pickle.load(f)
-
-with open('artifacts/kepler/kepler_habitability_minmax_scaler.pkl', 'rb') as f:
-    scaler = pickle.load(f)
-
-with open('artifacts/kepler/kepler_habitability_metadata.pkl', 'rb') as f:
-    meta = pickle.load(f)
-
-meta['feature_names']   # 130 columns, in the order the model expects
-meta['target_classes']  # ['HABITABILITY_ZONE', 'NON_HABITABLE', 'POTENTIALLY_HABITABLE']
-```
-
-Column order matters — `feature_names` is the contract between the scaler and
+The macro-F1 curve is flat above w≈0.55, so the smallest weight within 0.002 of
+the peak is chosen: that keeps as much of the auditable physics term as the data
+supports rather than letting an insignificant decimal hand the entire score to
 the model.
+
+| Configuration | Macro F1 |
+|---|---|
+| physics only (w=0.00) | 0.719 |
+| **selected (w=0.60)** | **0.983** |
+| classifier only (w=1.00) | 0.984 |
+
+An earlier version of this project used w=0.10. That was not a design choice —
+it was compensating for a classifier being served 90% zero-filled features,
+whose output had to be suppressed to stop it dragging Earth-like inputs down.
+With the feature pipeline fixed, the measured optimum moved to 0.60.
+
+The full sweep is in `reports/blend_calibration.json` and
+`reports/blend_weight_sweep.csv`; the scorer loads the JSON at import and falls
+back to `DEFAULT_CALIBRATION` in `habitability_scorer.py` if it is absent.

@@ -42,9 +42,11 @@ def api_root(request):
             'batch_predict': '/api/predict/batch/ [POST]',
             'explain': '/api/explain/ [POST]',
             'models_info': '/api/models/info/ [GET]',
+            'model_report': '/api/models/report/ [GET]',
             'health': '/api/health/ [GET]'
         },
-        'models_loaded': ai_service.get_models_info()['missions']
+        'models_loaded': ai_service.get_models_info()['missions'],
+        'default_model': ai_service.get_models_info()['default_model'],
     }, status=status.HTTP_200_OK)
 
 
@@ -234,6 +236,29 @@ def models_info(request):
     
     info = ai_service.get_models_info()
     return Response(info, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def model_report(request):
+    """
+    Full evaluation record for a model, including the caveats.
+
+    GET /api/models/report/?mission=auto
+
+    Exposes the out-of-fold per-class metrics, the degraded-input robustness
+    table and the leave-one-mission-out results, plus the statement that the
+    labels are a physics rule rather than observed ground truth. This endpoint
+    exists so the published accuracy figures have a single source that cannot
+    drift from the trained artefacts.
+    """
+    if not ai_service.is_service_available():
+        return Response(
+            {'error': 'Models not loaded'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    mission = request.query_params.get('mission', 'auto')
+    return Response(ai_service.get_model_report(mission), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

@@ -1,0 +1,5 @@
+Model Set,Estimator,Objects,OOF Macro F1,Fold SD,Default
+unified,XGBoost,11378,0.9827,0.0117,True
+k2,RandomForest,854,0.7668,0.1737,False
+kepler,RandomForest,4619,0.9891,0.0064,False
+tess,XGBoost,5905,0.9371,0.0718,False

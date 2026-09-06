@@ -1,87 +1,92 @@
 {
-  "description": "Simple test file - Change the 8 parameter values below to test different planets",
-  "instructions": "1. Edit the values below, 2. Run: python test_models.py",
-  
+  "description": "Edit the parameters below and run: python test_models.py",
+  "instructions": "Values use canonical names (pl_*/st_*). Kepler koi_* names also work. Any subset is accepted - missing quantities are derived from physics and flagged as derived.",
   "test_planets": [
     {
-      "name": "Earth-like Planet (Should be Potentially Habitable)",
-      "koi_period": 365.0,
-      "koi_prad": 1.0,
-      "koi_teq": 288.0,
-      "koi_insol": 1.0,
-      "koi_sma": 1.0,
-      "koi_steff": 5778.0,
-      "koi_srad": 1.0,
-      "koi_smass": 1.0
+      "name": "Earth",
+      "pl_orbper": 365.0,
+      "pl_rade": 1.0,
+      "pl_eqt": 255.0,
+      "pl_insol": 1.0,
+      "pl_orbsmax": 1.0,
+      "st_teff": 5778.0,
+      "st_rad": 1.0,
+      "st_mass": 1.0
     },
     {
-      "name": "Hot Jupiter (Should be Non-Habitable)",
-      "koi_period": 3.5,
-      "koi_prad": 11.0,
-      "koi_teq": 1200.0,
-      "koi_insol": 1000.0,
-      "koi_sma": 0.05,
-      "koi_steff": 6000.0,
-      "koi_srad": 1.2,
-      "koi_smass": 1.1
+      "name": "Hot Jupiter",
+      "pl_orbper": 3.5,
+      "pl_rade": 11.0,
+      "pl_eqt": 1200.0,
+      "pl_insol": 1000.0,
+      "pl_orbsmax": 0.05,
+      "st_teff": 6000.0,
+      "st_rad": 1.2,
+      "st_mass": 1.1
     },
     {
-      "name": "Cold Rocky Planet (Should be Non-Habitable)",
-      "koi_period": 500.0,
-      "koi_prad": 0.8,
-      "koi_teq": 150.0,
-      "koi_insol": 0.1,
-      "koi_sma": 2.0,
-      "koi_steff": 4500.0,
-      "koi_srad": 0.8,
-      "koi_smass": 0.7
+      "name": "Cold rocky planet",
+      "pl_orbper": 500.0,
+      "pl_rade": 0.8,
+      "pl_eqt": 150.0,
+      "pl_insol": 0.1,
+      "pl_orbsmax": 2.0,
+      "st_teff": 4500.0,
+      "st_rad": 0.8,
+      "st_mass": 0.7
     },
     {
-      "name": "Venus-like (Should be Non-Habitable - too hot)",
-      "koi_period": 225.0,
-      "koi_prad": 0.95,
-      "koi_teq": 737.0,
-      "koi_insol": 1.9,
-      "koi_sma": 0.72,
-      "koi_steff": 5778.0,
-      "koi_srad": 1.0,
-      "koi_smass": 1.0
+      "name": "Venus (true 737 K surface temperature)",
+      "pl_orbper": 225.0,
+      "pl_rade": 0.95,
+      "pl_eqt": 737.0,
+      "pl_insol": 1.9,
+      "pl_orbsmax": 0.72,
+      "st_teff": 5778.0,
+      "st_rad": 1.0,
+      "st_mass": 1.0
     },
     {
-      "name": "Mars-like (Should be Non-Habitable - too cold)",
-      "koi_period": 687.0,
-      "koi_prad": 0.53,
-      "koi_teq": 210.0,
-      "koi_insol": 0.43,
-      "koi_sma": 1.52,
-      "koi_steff": 5778.0,
-      "koi_srad": 1.0,
-      "koi_smass": 1.0
+      "name": "Mars",
+      "pl_orbper": 687.0,
+      "pl_rade": 0.53,
+      "pl_eqt": 210.0,
+      "pl_insol": 0.43,
+      "pl_orbsmax": 1.52,
+      "st_teff": 5778.0,
+      "st_rad": 1.0,
+      "st_mass": 1.0
     },
     {
-      "name": "random Planet (Adjust values as needed)",
-      "koi_period": 120,
-      "koi_prad": 1,
-      "koi_teq": 213,
-      "koi_insol": 1.9,
-      "koi_sma": 1.90,
-      "koi_steff": 5900,
-      "koi_srad": 1.0,
-      "koi_smass": 1.0
+      "name": "Your planet (edit these values)",
+      "pl_orbper": 120,
+      "pl_rade": 1,
+      "pl_eqt": 213,
+      "pl_insol": 1.9,
+      "pl_orbsmax": 1.9,
+      "st_teff": 5900,
+      "st_rad": 1.0,
+      "st_mass": 1.0
+    },
+    {
+      "name": "Earth from period + star only (demonstrates physics derivation)",
+      "pl_rade": 1.0,
+      "pl_orbper": 365.25,
+      "st_teff": 5772.0,
+      "st_rad": 1.0
     }
   ],
-  
   "parameter_info": {
-    "koi_period": "Orbital period in days (Earth = 365 days)",
-    "koi_prad": "Planet radius in Earth radii (Earth = 1.0)",
-    "koi_teq": "Equilibrium temperature in Kelvin (Earth = 288K)",
-    "koi_insol": "Insolation flux relative to Earth (Earth = 1.0)",
-    "koi_sma": "Semi-major axis in AU (Earth = 1.0 AU)",
-    "koi_steff": "Stellar effective temperature in Kelvin (Sun = 5778K)",
-    "koi_srad": "Stellar radius in Solar radii (Sun = 1.0)",
-    "koi_smass": "Stellar mass in Solar masses (Sun = 1.0)"
+    "pl_orbper": "Orbital period in days (Earth = 365.25)",
+    "pl_rade": "Planet radius in Earth radii (Earth = 1.0)",
+    "pl_eqt": "Equilibrium temperature in Kelvin (Earth = 255 K, NOT surface temperature)",
+    "pl_insol": "Insolation flux relative to Earth (Earth = 1.0)",
+    "pl_orbsmax": "Semi-major axis in AU (Earth = 1.0)",
+    "st_teff": "Stellar effective temperature in Kelvin (Sun = 5772)",
+    "st_rad": "Stellar radius in Solar radii (Sun = 1.0)",
+    "st_mass": "Stellar mass in Solar masses (Sun = 1.0)",
+    "pl_orbeccen": "Orbital eccentricity, optional (0 = circular)"
   },
-  
   "typical_ranges": {
     "koi_period": "1-500 days for potentially habitable planets",
     "koi_prad": "0.5-2.0 Earth radii for rocky planets",
@@ -91,5 +96,10 @@
     "koi_steff": "3500-6500K for suitable stars",
     "koi_srad": "0.5-1.5 Solar radii",
     "koi_smass": "0.5-1.5 Solar masses"
+  },
+  "label_rule": {
+    "POTENTIALLY_HABITABLE": "radius 0.5-2.0, flux 0.25-4.0, eqt 180-310 K, period 10-500 d (all four)",
+    "HABITABILITY_ZONE": "flux 0.25-4.0 OR eqt 200-350 K",
+    "NON_HABITABLE": "everything else"
   }
 }

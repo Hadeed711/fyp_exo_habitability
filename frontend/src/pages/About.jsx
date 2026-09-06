@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronDown, Download, Github,
@@ -8,6 +8,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AboutHeroCube from '../components/AboutHeroCube';
+import { getModelReport } from '../services/api';
+
+/*
+ * Every performance figure on this page is fetched from /api/models/report/,
+ * which reads the metadata written by scripts/train_models.py. Nothing here is
+ * hard-coded: if the models are retrained, this page changes with them. The
+ * previous version quoted a hard-coded "100% accuracy" that came from a
+ * label-leaking feature set and had no way of ever being corrected.
+ */
+const useModelReport = () => {
+  const [report, setReport] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getModelReport('auto')
+      .then((data) => { if (!cancelled) setReport(data); })
+      .catch((err) => { if (!cancelled) setError(err); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { report, error };
+};
+
+const pct = (value) => (value === null || value === undefined ? '—' : `${(value * 100).toFixed(1)}%`);
+const num = (value) => (value === null || value === undefined ? '—' : value.toLocaleString());
 
 /* ─── helpers ─── */
 const fadeUp = (delay = 0) => ({
@@ -146,6 +172,16 @@ const ResourceButton = ({ icon: Icon, label, href, download, delay = 0 }) => (
    MAIN ABOUT PAGE
   ═══════════════════════════════════ */
 const About = () => {
+  const { report } = useModelReport();
+
+  const perClass = report?.oof_per_class ?? [];
+  const habitableRow = perClass.find((row) => row.class === 'POTENTIALLY_HABITABLE');
+  const zoneRow = perClass.find((row) => row.class === 'HABITABILITY_ZONE');
+  const degraded = report?.degraded_input ?? [];
+  const worstDegraded = degraded.length ? degraded[degraded.length - 1] : null;
+  const transfer = report?.leave_one_mission_out ?? [];
+  const objects = report?.training_objects ?? null;
+
   return (
     <div className="w-full min-h-screen bg-slate-950 text-white overflow-x-hidden">
       <Navbar />
@@ -201,9 +237,9 @@ const About = () => {
               {/* mini stat row */}
               <motion.div {...fadeUp(0.3)} className="flex flex-wrap justify-center lg:justify-start gap-4 mb-4">
                 {[
-                  { v: '8,245', l: 'Exoplanets' },
-                  { v: '100%', l: 'Peak Accuracy' },
-                  { v: '3',    l: 'ML Models' },
+                  { v: num(objects), l: 'Exoplanets' },
+                  { v: report ? report.oof_macro_f1.toFixed(3) : '—', l: 'Macro F1 (out-of-fold)' },
+                  { v: report ? String(report.n_features) : '—', l: 'Physical Features' },
                 ].map(({ v, l }) => (
                   <div key={l} className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-6 py-3 text-center">
                     <p className="text-xl font-bold text-cyan-400">{v}</p>
@@ -254,47 +290,138 @@ const About = () => {
         <motion.section {...fadeUp(0.1)}>
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/30 border border-slate-700/50 rounded-2xl p-8">
             <SectionHeading icon={Cpu} label="AI Model Architecture" color="blue" />
-            <h2 className="text-xl font-bold text-white mb-6">Mission-Specific ML Models</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Unified Habitability Classifier
+              {report?.model_type ? ` · ${report.model_type}` : ''}
+            </h2>
 
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-              Three mission-specific classification models were trained — XGBoost for the K2 and Kepler
-              missions, and Random Forest for TESS. Each model was independently trained and evaluated
-              on its respective mission dataset (8,245 exoplanets total across all three missions).
+              A single {report?.model_type ?? 'gradient-boosted'} classifier is trained on all
+              {' '}{num(objects)} objects pooled across K2, Kepler and TESS. Pooling matters: only
+              {' '}{habitableRow ? habitableRow.support : '—'} objects in the whole catalogue meet the
+              potentially-habitable criteria, and splitting those across three per-mission models leaves
+              too few in each to estimate anything reliably. Per-mission models are still trained as an
+              ablation and can be selected from the API, but the pooled model is the default.
             </p>
 
-            {/* model table */}
-            <div className="overflow-x-auto mb-8 rounded-xl border border-slate-700/40 bg-slate-900/40">
+            <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+              Every figure below is read live from{' '}
+              <code className="text-cyan-300 bg-slate-900/60 px-1.5 py-0.5 rounded text-xs">/api/models/report/</code>,
+              which serves the metadata written by the training run — this page cannot drift from the
+              artefacts it describes.
+            </p>
+
+            {/* per-class metrics, out-of-fold */}
+            <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider font-semibold">
+              Per-class performance &middot; 5-fold out-of-fold
+            </p>
+            <div className="overflow-x-auto mb-3 rounded-xl border border-slate-700/40 bg-slate-900/40">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-700/50">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Mission</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Best Model</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Accuracy</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Weighted F1</th>
+                    {['Class', 'Precision', 'Recall', 'F1', 'Objects'].map((h) => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { m: 'K2',     model: 'XGBoost',       acc: '99.2%', f1: '0.991', a: 'cyan'  },
-                    { m: 'Kepler', model: 'XGBoost',       acc: '100%',  f1: '1.000', a: 'green' },
-                    { m: 'TESS',   model: 'Random Forest', acc: '100%',  f1: '1.000', a: 'green' },
-                  ].map(({ m, model, acc, f1, a }, i) => (
-                    <tr key={m} className={i < 2 ? 'border-b border-slate-700/30' : ''}>
-                      <td className="px-5 py-3.5 text-white font-medium">{m}</td>
-                      <td className="px-5 py-3.5 text-gray-400">{model}</td>
-                      <td className={`px-5 py-3.5 font-semibold ${a === 'green' ? 'text-green-400' : 'text-cyan-400'}`}>{acc}</td>
-                      <td className={`px-5 py-3.5 font-semibold ${a === 'green' ? 'text-green-400' : 'text-cyan-400'}`}>{f1}</td>
+                  {perClass.length === 0 && (
+                    <tr><td colSpan={5} className="px-5 py-4 text-gray-500">Loading metrics from the API&hellip;</td></tr>
+                  )}
+                  {perClass.map((row, i) => (
+                    <tr key={row.class} className={i < perClass.length - 1 ? 'border-b border-slate-700/30' : ''}>
+                      <td className="px-5 py-3.5 text-white font-medium">{row.class.replace(/_/g, ' ')}</td>
+                      <td className="px-5 py-3.5 text-cyan-400 font-semibold">{row.precision.toFixed(3)}</td>
+                      <td className="px-5 py-3.5 text-cyan-400 font-semibold">{row.recall.toFixed(3)}</td>
+                      <td className="px-5 py-3.5 text-cyan-400 font-semibold">{row.f1.toFixed(3)}</td>
+                      <td className="px-5 py-3.5 text-gray-400">{row.support.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-gray-500 mb-8 leading-relaxed">
+              Out-of-fold means every object is scored by a model that never saw it during training, so the
+              rare classes report their full support instead of the one or two rows a single held-out split
+              would leave them.
+            </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard label="Best Accuracy"     value="100%"  sub="Kepler & TESS"   delay={0.12} accent="green" />
-              <StatCard label="Min. Accuracy"     value="99.2%" sub="K2 Mission"      delay={0.14} accent="cyan"  />
-              <StatCard label="Best F1 Score"     value="1.000" sub="2 missions"      delay={0.16} accent="green" />
-              <StatCard label="Total Exoplanets"  value="8,245" sub="across 3 missions" delay={0.18} accent="cyan" />
+              <StatCard label="Macro F1"         value={report ? report.oof_macro_f1.toFixed(3) : '\u2014'} sub="out-of-fold, all classes" delay={0.12} accent="green" />
+              <StatCard label="Habitable Recall" value={habitableRow ? habitableRow.recall.toFixed(3) : '\u2014'} sub={habitableRow ? habitableRow.support + ' objects' : '\u2014'} delay={0.14} accent="cyan" />
+              <StatCard label="Zone F1"          value={zoneRow ? zoneRow.f1.toFixed(3) : '\u2014'} sub={zoneRow ? zoneRow.support + ' objects' : '\u2014'} delay={0.16} accent="green" />
+              <StatCard label="Catalogue Size"   value={num(objects)} sub="across 3 missions" delay={0.18} accent="cyan" />
+            </div>
+
+            {/* the honest caveat */}
+            <div className="mt-8 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-5">
+              <p className="text-sm font-semibold text-cyan-300 mb-2">What these numbers do and do not mean</p>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Habitability labels are a <span className="text-white">documented physics rule</span>, not observed
+                ground truth &mdash; no exoplanet has confirmed habitability. The classifier is trained on the same
+                observables that rule consumes, so it is a learned surrogate of it, and a high score means the model
+                reproduces the rule faithfully. It is <span className="text-white">not</span> evidence of scientific
+                discovery. The two results below are the ones that show capability the rule does not have.
+              </p>
+            </div>
+
+            {/* degraded-input robustness: the real contribution */}
+            <div className="mt-6">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider font-semibold">
+                Robustness to missing measurements
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-slate-700/40 bg-slate-900/40">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700/50">
+                      {['Observables withheld', 'Model accuracy', 'Rule accuracy', 'Rule undefined'].map((h) => (
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {degraded.length === 0 && (
+                      <tr><td colSpan={4} className="px-5 py-4 text-gray-500">Loading&hellip;</td></tr>
+                    )}
+                    {degraded.map((row, i) => (
+                      <tr key={row.observables_withheld} className={i < degraded.length - 1 ? 'border-b border-slate-700/30' : ''}>
+                        <td className="px-5 py-3.5 text-white font-medium">{row.observables_withheld}</td>
+                        <td className="px-5 py-3.5 text-green-400 font-semibold">{pct(row.model_accuracy)}</td>
+                        <td className="px-5 py-3.5 text-amber-400 font-semibold">{pct(row.rule_accuracy)}</td>
+                        <td className="px-5 py-3.5 text-gray-400">{pct(row.rule_undefined_rate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                Real catalogue rows are incomplete. Withhold enough measurements and the rule cannot be evaluated
+                at all, while the model still classifies most objects correctly &mdash; because it was trained on
+                masked inputs and is told which values were derived rather than measured.
+              </p>
+            </div>
+
+            {/* cross-mission generalisation */}
+            <div className="mt-6">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider font-semibold">
+                Leave-one-mission-out generalisation
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {transfer.length === 0 && <p className="text-sm text-gray-500">Loading&hellip;</p>}
+                {transfer.map((row) => (
+                  <div key={row.held_out_mission} className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Held out</p>
+                    <p className="text-sm font-semibold text-white mb-2">{row.held_out_mission.toUpperCase()}</p>
+                    <p className="text-lg font-bold text-cyan-400">{row.macro_f1.toFixed(3)}</p>
+                    <p className="text-xs text-gray-500">macro F1 &middot; {row.n_objects.toLocaleString()} objects</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                Trained on two missions, evaluated on the third. Each mission has a different instrument,
+                detection bias and period distribution, so a model that had memorised dataset structure rather
+                than physics would fail here.
+              </p>
             </div>
 
             {/* Missing data explanation */}
@@ -302,18 +429,23 @@ const About = () => {
               <div className="flex items-start gap-3">
                 <span className="text-amber-400 text-lg mt-0.5">⚠</span>
                 <div>
-                  <p className="text-sm font-semibold text-amber-300 mb-2">Why do planets with missing data have habitability classes?</p>
+                  <p className="text-sm font-semibold text-amber-300 mb-2">How are planets with incomplete measurements handled?</p>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    During data preprocessing, the habitability scorer ran on <span className="text-white">all 8,245 planets</span>, including those
-                    with incomplete measurements. When a parameter such as equilibrium temperature, insolation flux, or planet
-                    radius is absent from the NASA archive, the scorer substitutes a <span className="text-white">neutral placeholder value</span>{' '}
-                    (e.g., temperature → 0 K, radius → 0 R⊕). Because these defaults produce a near-zero physics score, planets
-                    with little or no data almost always resolve to <span className="text-amber-300 font-medium">NON_HABITABLE</span>. A smaller
-                    fraction land in <span className="text-cyan-300 font-medium">HABITABILITY_ZONE</span> or{' '}
-                    <span className="text-green-300 font-medium">POTENTIALLY_HABITABLE</span> only when enough real
-                    measurements are present to push their score above the threshold. These planets are <span className="text-white">not removed</span>{' '}
-                    from the dataset — they represent real discovered exoplanets whose physical characterisation is still ongoing,
-                    and their classification is a best-estimate given currently available data.
+                    Most catalogue rows are missing something. Rather than substituting a median or a zero, missing
+                    quantities are <span className="text-white">derived from first principles</span> wherever the physics
+                    allows: orbital distance from period and stellar mass via Kepler&rsquo;s third law, stellar luminosity
+                    from radius and temperature via Stefan&ndash;Boltzmann, insolation from luminosity and distance via the
+                    inverse-square law, and equilibrium temperature from insolation. Feeding Earth&rsquo;s orbital period
+                    and the Sun&rsquo;s radius and temperature through this chain recovers 1.00&nbsp;AU, 1.00 Earth flux
+                    and 255&nbsp;K exactly.
+                  </p>
+                  <p className="text-sm text-gray-400 leading-relaxed mt-3">
+                    Every derived value is <span className="text-white">flagged as derived</span> and the flags are model
+                    inputs, so the classifier knows which numbers are measured and which are inferred &mdash; that is what
+                    produces the graceful degradation shown in the robustness table above. Objects whose habitability
+                    criteria cannot be resolved even after derivation are excluded rather than guessed at, and objects the
+                    archives disposition as <span className="text-amber-300 font-medium">false positives</span> are dropped
+                    entirely: they are not planets.
                   </p>
                 </div>
               </div>
@@ -331,7 +463,7 @@ const About = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MissionCard
                 name="K2 Mission"
-                count="1,937 exoplanets"
+                count="854 objects"
                 year="2014 – 2018"
                 desc="Extended Kepler mission observing different fields along the ecliptic plane. Provided a diverse sample across multiple stellar environments."
                 src="keplerscience.arc.nasa.gov/k2.html"
@@ -340,7 +472,7 @@ const About = () => {
               />
               <MissionCard
                 name="Kepler Mission"
-                count="2,742 exoplanets"
+                count="4,619 objects"
                 year="2009 – 2018"
                 desc="NASA's primary planet-hunting telescope. Discovered thousands of confirmed exoplanets by monitoring stellar brightness for transits."
                 src="archive.stsci.edu/kepler"
@@ -349,7 +481,7 @@ const About = () => {
               />
               <MissionCard
                 name="TESS Mission"
-                count="4,935 exoplanets"
+                count="5,905 objects"
                 year="2018 – present"
                 desc="Surveys nearly the entire sky, focusing on nearby bright stars to find planets suitable for atmospheric characterisation."
                 src="archive.stsci.edu/tess"
@@ -369,22 +501,33 @@ const About = () => {
             <h2 className="text-xl font-bold text-white mb-6">Research Process</h2>
             <div className="space-y-2">
               <AccordionItem title="Feature Engineering & Selection" delay={0.22}>
-                We selected 12 key physical parameters including stellar effective temperature, stellar radius,
-                stellar luminosity, orbital period, orbital semi-major axis, planet radius, planet equilibrium
-                temperature, stellar flux, and eccentricity. Feature importance analysis using Random Forest
-                confirmed these parameters have the highest predictive power for habitability classification.
+The model sees 25 features, all computable from the nine observables the API accepts: planet radius,
+                equilibrium temperature, insolation flux, orbital period, semi-major axis, eccentricity, stellar
+                temperature, stellar radius and stellar mass &mdash; plus derived luminosity, log transforms,
+                planet/star radius ratio, orbit size in stellar radii, a continuous habitable-zone position using
+                Kopparapu (2013) boundaries, and nine flags marking which inputs were derived rather than measured.
+                Deliberately excluded: sky coordinates, photometric magnitudes and measurement-uncertainty columns,
+                which cannot cause habitability &mdash; in the previous model the uncertainty on a visual magnitude
+                ranked 7th by importance, a sign it was reading dataset structure rather than physics. Also excluded
+                are boolean threshold flags that restated the labelling rule directly.
               </AccordionItem>
               <AccordionItem title="Training Process" delay={0.25}>
-                The model was trained using stratified k-fold cross-validation (k=5) to ensure balanced class
-                representation. We used SMOTE oversampling to address class imbalance between habitable and
-                non-habitable candidates. Hyperparameter tuning was performed using GridSearchCV with
-                100 estimators, max depth of 15, and minimum samples split of 4.
+Gradient-boosted trees and a random forest are both fitted and the better one selected on out-of-fold
+                macro F1 &mdash; macro, because 93% of objects are non-habitable and plain accuracy would be dominated
+                by that majority. Class imbalance is handled with balanced sample weights rather than SMOTE, which on
+                roughly a hundred habitable planets would interpolate between points that are already near-duplicates.
+                Training rows are additionally duplicated with random subsets of observables masked out, so the model
+                learns to classify from partial evidence. Masking and feature scaling are fitted inside each
+                cross-validation fold, never across, so no information leaks into the held-out fold.
               </AccordionItem>
               <AccordionItem title="Validation & Testing" delay={0.28}>
-                Final model evaluation was performed on a held-out test set comprising 20% of the total dataset.
-                The model was validated against published habitability indices including the Earth Similarity
-                Index (ESI) and the Habitable Zone Distance (HZD). Known potentially habitable planets such as
-                Kepler-442b and TRAPPIST-1e were used as benchmark validation cases.
+Headline metrics are 5-fold out-of-fold: every object is scored by a model that never saw it, so the
+                126 potentially-habitable objects all contribute to precision and recall instead of the ~19 a single
+                held-out split would leave. A single split was rejected precisely because it had previously left the
+                rare class with one test object, making its reported F1 meaningless. Two further evaluations test
+                capability the labelling rule does not have: progressive withholding of observables, and
+                leave-one-mission-out transfer. Reference bodies &mdash; Earth, Mars, Venus and a hot Jupiter &mdash;
+                are asserted in the test suite so a regression in the score cannot ship silently.
               </AccordionItem>
             </div>
           </div>
@@ -420,7 +563,7 @@ const About = () => {
                 As a concrete example, <span className="text-white font-medium">Venus</span> would score as potentially habitable using
                 transit data alone (similar radius and orbit to Earth), yet its surface temperature is 465 °C due to a runaway greenhouse
                 atmosphere that no transit survey can measure. JWST atmospheric observations currently exist for
-                only a handful of exoplanets — our 8,245-planet dataset has zero atmospheric composition data.
+                only a handful of exoplanets; this catalogue contains no atmospheric composition data at all.
               </p>
             </div>
           </div>

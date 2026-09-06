@@ -232,32 +232,47 @@ brightness when a planet passes in front of its star as seen from Earth.`,
     border: 'border-green-400/30',
     iconBg: 'bg-green-400/20 text-green-400',
     title: 'How Our AI / ML Models Work',
-    summary: 'Machine learning classifiers trained on mission-specific exoplanet datasets.',
-    content: `ExoHab Explorer uses three separate machine learning models — one per mission — 
-trained on real exoplanet data:
+    summary: 'One classifier trained on all three missions pooled, and what its score really means.',
+    content: `ExoHab Explorer uses a single XGBoost classifier trained on all 11,378 catalogued
+objects pooled across Kepler, K2 and TESS. Per-mission models are also trained, but only as an
+ablation: just 126 objects in the entire catalogue meet the potentially-habitable criteria, and
+splitting those across three models leaves too few in each to estimate anything reliably.
 
-**Models Used:**
-• **Kepler** → XGBoost classifier
-• **K2** → XGBoost classifier
-• **TESS** → Random Forest classifier
+**Training Labels - read this carefully:**
+The three classes come from a **documented physics rule**, not from observed ground truth. No
+exoplanet has confirmed habitability, so there is nothing to observe. The rule is:
+1. **Potentially Habitable** - radius 0.5-2.0 R(E), flux 0.25-4.0 S(E), equilibrium temperature
+180-310 K, and orbital period 10-500 days (all four required)
+2. **Habitability Zone** - flux 0.25-4.0 S(E) OR equilibrium temperature 200-350 K
+3. **Non-Habitable** - everything else
 
-**Training Labels:**
-Exoplanets are labeled into three classes based on physical criteria:
-1. **Potentially Habitable** (>85% score) — Rocky, right temperature, in HZ
-2. **Habitability Zone** (~55% score) — In the HZ but may lack ideal properties
-3. **Non-Habitable** (<15% score) — Too hot, too large, or outside HZ
+Because the classifier is trained on the same measurements the rule consumes, it is a **learned
+surrogate** of that rule. High accuracy means it reproduces the rule faithfully - it is not
+evidence of a scientific discovery, and we do not present it as one.
 
-**Feature Engineering:**
-The models use not just raw parameters but also derived features:
-• Earth Similarity Indices (radius, temperature, insolation similarity)
-• Habitable Zone flags (is the planet in the conservative/optimistic HZ?)
-• Planet size flags (rocky, super-Earth, Earth-sized)
-• Log-transformed features for skewed distributions
+**So why use ML at all?**
+Because the rule breaks on incomplete data and the model does not. Real catalogue rows are
+missing measurements. Withhold four of eight observables and the rule cannot be evaluated for
+95% of objects, while the model still classifies 97.6% of them correctly. It gets there by being
+trained on deliberately masked inputs, and by being told which of its inputs were measured and
+which were derived.
+
+**Features (25, all derived from 9 observables):**
+- Planet radius, equilibrium temperature, insolation flux, orbital period and distance, eccentricity
+- Stellar temperature, radius, mass and derived luminosity
+- Log transforms, planet/star radius ratio, orbit size in stellar radii
+- Continuous habitable-zone position using Kopparapu (2013) boundaries
+- Nine flags marking which inputs were derived rather than measured
+
+Deliberately **excluded**: boolean threshold flags that simply restate the labelling rule. An
+earlier version included them and reported 100% accuracy - the model was reading the answer off
+its own input. Sky coordinates, photometric magnitudes and measurement-uncertainty columns are
+excluded for the same reason: they cannot cause habitability.
 
 **Important Limitation:**
-These models predict based on orbital and physical parameters ONLY. They do not 
-account for atmospheric composition, magnetic fields, geological activity, or 
-other habitability factors that we cannot currently measure for exoplanets.`,
+These models use orbital and physical parameters ONLY. They do not account for atmospheric
+composition, magnetic fields, geological activity, or other habitability factors that cannot
+currently be measured for exoplanets.`,
     tag: 'AI/ML'
   },
   {
@@ -268,19 +283,36 @@ other habitability factors that we cannot currently measure for exoplanets.`,
     border: 'border-blue-400/30',
     iconBg: 'bg-blue-400/20 text-blue-400',
     title: 'Understanding the Habitability Score',
-    summary: 'What the 0–100% score actually means and its limitations.',
-    content: `The habitability score is a composite measure combining ML model probabilities 
-with physical parameter checks. It ranges from 0% to 100%:
+    summary: 'What the 0-100% score actually means and its limitations.',
+    content: `The habitability score blends the classifier with a deterministic physics
+calculation:
 
-**Score Thresholds:**
-• **> 85%** (Green) — Potentially Habitable: Strong alignment with Earth-like conditions
-• **35–85%** (Yellow) — Habitability Zone: In or near the HZ, but not ideal
-• **< 35%** (Red) — Non-Habitable: Likely too hot, too cold, or too large
+    score = 0.60 x ML_score + 0.40 x physics_score
+
+**ML_score** collapses the three class probabilities onto one axis: P(habitable) x 1.0 +
+P(zone) x 0.5 + P(non-habitable) x 0.0.
+
+**physics_score** is closed-form and hand-checkable: the geometric mean of radius, temperature
+and flux similarity to Earth, multiplied by habitable-zone membership and a stellar-type factor.
+The geometric mean means any single disqualifying property drags the whole score down - a
+Jupiter-sized planet scores zero regardless of its orbit.
+
+**Why 0.60 and not some other number?** It is calibrated, not chosen by taste. A sweep over the
+weight and the class thresholds picks the combination that best agrees with the physics label
+across all 11,378 objects, using out-of-fold probabilities so the weight is not tuned against
+memorised answers. An earlier version of this project used 0.10, which existed only to stop a
+broken classifier - one being fed 90% zero-filled features - from dragging Earth-like inputs
+down. That bug is fixed and the weight rose accordingly.
+
+**Score Thresholds** (calibrated alongside the weight):
+- **>= 71%** (Green) - Potentially Habitable
+- **24-70%** (Yellow) - Habitability Zone
+- **< 24%** (Red) - Non-Habitable
 
 **What it measures:**
-1. ML model class probability (trained on Kepler/K2/TESS labeled data)
-2. Temperature similarity to Earth's equilibrium temperature (~255 K)
-3. Whether insolation is within the Habitable Zone
+1. Classifier probability across the three habitability classes
+2. Temperature similarity to Earth's equilibrium temperature (255 K)
+3. Whether insolation falls in the conservative habitable zone
 4. Planet size (rocky vs. gas giant)
 5. Stellar type suitability
 

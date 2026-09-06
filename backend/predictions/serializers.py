@@ -30,7 +30,7 @@ class PlanetParametersSerializer(serializers.Serializer):
     st_age = serializers.FloatField(required=False, min_value=0.0, help_text="Stellar age (Gyr)")
     
     stellar_type = serializers.CharField(required=False, max_length=10, help_text="Stellar type (G, K, M, F)")
-    mission = serializers.ChoiceField(choices=['auto', 'k2', 'kepler', 'tess'], default='auto', required=False)
+    mission = serializers.ChoiceField(choices=['auto', 'unified', 'k2', 'kepler', 'tess'], default='auto', required=False)
     explanation_method = serializers.ChoiceField(
         choices=['auto', 'shap', 'lime', 'fallback'],
         default='auto',
@@ -62,7 +62,7 @@ class BatchPredictionSerializer(serializers.Serializer):
         help_text="List of planet parameters (max 100)"
     )
     mission = serializers.ChoiceField(
-        choices=['auto', 'k2', 'kepler', 'tess'],
+        choices=['auto', 'unified', 'k2', 'kepler', 'tess'],
         default='auto',
         required=False
     )

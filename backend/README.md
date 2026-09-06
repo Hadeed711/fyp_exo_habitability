@@ -16,23 +16,30 @@ internals.
 | App | Responsibility |
 |---|---|
 | `planets/` | `Mission` + `Exoplanet` models; list, detail, search, compare, stats endpoints |
-| `predictions/` | `/predict/`, `/predict/batch/`, `/explain/`, `/models/info/`, `/health/`; `ai_service.py` holds the ML service layer. Defines **no** database models |
+| `predictions/` | `/predict/`, `/predict/batch/`, `/explain/`, `/models/info/`, `/models/report/`, `/health/`; `ai_service.py` holds the ML service layer. Defines **no** database models |
 | `users/` | Register, login, me, logout; `SavedPrediction` CRUD |
 | `chatbot/` | ARIA — proxies to the Groq Cloud API |
-| `api/` | `habitability_scorer.py`, the core scoring engine. Not an installed Django app |
+| `api/` | `physics.py`, `scoring.py`, `habitability_scorer.py` — the scoring core. Not an installed Django app |
 | `backend/` | Settings, root URL conf, CSP middleware |
 
 ### A note on the `api` app
 
-`api` is **not** in `INSTALLED_APPS`, and it contains only two files:
-`habitability_scorer.py` and `__init__.py`. It exists solely as an import path —
-`predictions/ai_service.py` does
-`from api.habitability_scorer import HabitabilityScorer`.
+`api` is **not** in `INSTALLED_APPS` — it holds no Django models and needs no
+migrations. It is a plain Python package holding the scoring core:
 
-Its Django scaffolding (`views.py`, `urls.py`, `models.py`, `serializers.py`,
-`admin.py`, `apps.py`, `tests.py` and an empty `migrations/`) duplicated the
-`predictions` app, was unreachable over HTTP, and has been deleted. Add new
-endpoints to `predictions/`, never here.
+| Module | Responsibility |
+|---|---|
+| `physics.py` | Canonical schema, physics derivations, the 25-feature vector, and `LABEL_RULE` |
+| `scoring.py` | The deterministic physics score, ESI, habitable-zone membership |
+| `habitability_scorer.py` | Loads the models, blends classifier with physics |
+
+**`physics.py` is imported by both `scripts/train_models.py` and the serving
+path.** That shared import is what makes train/serve feature skew structurally
+impossible: change a formula and training and inference change together. The
+scorer additionally refuses to load any model whose stored feature list
+disagrees with `FEATURE_ORDER`, so a stale artefact fails loudly at startup.
+
+Add new HTTP endpoints to `predictions/`, never here.
 
 ---
 
@@ -42,15 +49,18 @@ endpoints to `predictions/`, never here.
 POST /api/predict/
   → predictions/views.py::predict
       → predictions/ai_service.py  (singleton, loads models once per process)
-          → api/habitability_scorer.py::calculate_habitability_score
-              ├── mission model .pkl        from  models/
-              ├── scaler + encoder .pkl     from  artifacts/<mission>/
-              └── physics terms             computed in-process
-  → JSON: habitability_score, classification, confidence, ESI, factor breakdown
+          → api/habitability_scorer.py::predict_habitability
+              ├── api/physics.py::build_features   25 features, always complete
+              ├── model .pkl                       from  models/       (default: unified)
+              ├── scaler + encoder .pkl            from  artifacts/<name>/
+              └── api/scoring.py::physics_score    closed-form, in-process
+  → JSON: habitability_score, classification, confidence, ESI, factor breakdown,
+          score_thresholds, resolved_parameters, derived_parameters
 ```
 
-The scorer blends `0.10 × ML + 0.90 × physics`. The physics weighting is
-deliberate — see
+The scorer blends `0.60 × ML + 0.40 × physics`. That weight and the two class
+thresholds are **calibrated** by `scripts/calibrate_blend.py` and loaded from
+`models/reports/blend_calibration.json` — see
 [PROJECT_UNDERSTANDING_GUIDE.md](../PROJECT_UNDERSTANDING_GUIDE.md#7-habitability-scoring-system).
 
 Models load lazily on first request and stay resident, so the first prediction
@@ -73,39 +83,34 @@ production.
 ### Loading planet data
 
 ```bash
-python load_data_to_db.py
+python load_data_to_db.py --dry-run    # report what would change
+python load_data_to_db.py              # first load
+python load_data_to_db.py --replace    # wipe and reload after retraining
 ```
 
-Idempotent — it skips any planet whose name already exists, so re-running only
-adds new rows.
+It reads **one** file, `data/processed/habitability_catalogue.csv`, written by
+`scripts/train_models.py`. The site's habitability classes and the model's
+training targets therefore come from the same 11,378 rows and cannot drift
+apart. Without `--replace` the script refuses to load on top of existing rows,
+because mixing two catalogue versions would leave the table showing two
+different labelling schemes.
 
-The three processed datasets do **not** share a name column, which the loader
-handles per mission:
+Names are resolved during training (`pl_name` for K2, `KOI-` + `kepoi_name` for
+Kepler, `TOI-` + `toi` for TESS) and de-duplicated there, so the loader never
+needs a positional placeholder.
 
-| Mission | Name column | Example |
-|---|---|---|
-| K2 | `pl_name` | `BD+20 594 b` |
-| Kepler | `kepler_name`, falling back to `kepoi_name` | `Kepler-227 b` |
-| TESS | `toi`, rendered with a prefix | `TOI-1001.01` |
+### Repairing placeholder names (legacy)
 
-Row counts differ from planet counts: 9,614 processed rows load as 8,245 unique
-planets, because K2's 1,937 rows describe 568 distinct planets (one row per
-observation reference).
-
-### Repairing placeholder names
-
-A database loaded before the per-mission name mapping existed contains
-positional placeholders (`Kepler_planet_0`, `TESS_planet_0`) instead of
-catalogue designations, which breaks name search across most of the dataset.
+`backfill_planet_names.py` repaired databases loaded before per-mission name
+resolution existed, where most rows carried placeholders like
+`Kepler_planet_0`. It is superseded — names now come from the catalogue, and
+`tests/test_habitability_scorer.py::test_planet_names_are_unique` asserts they
+load without collisions. Kept only for restoring an old dump.
 
 ```bash
-python backfill_planet_names.py            # dry run, prints every planned rename
-python backfill_planet_names.py --apply    # commit, in a single transaction
+python backfill_planet_names.py            # dry run
+python backfill_planet_names.py --apply    # commit
 ```
-
-Safe to re-run; rows with real names are left alone.
-
----
 
 ## Auth
 

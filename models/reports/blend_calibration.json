@@ -1,0 +1,189 @@
+{
+  "ml_weight": 0.6,
+  "physics_weight": 0.4,
+  "threshold_habitability_zone": 0.24,
+  "threshold_potentially_habitable": 0.71,
+  "objective": "macro-F1 of the thresholded hybrid score vs the physics label; each weight scored at its own best thresholds, then the smallest weight within 0.002 of the peak is selected",
+  "macro_f1": 0.9825,
+  "peak_macro_f1": 0.9838,
+  "peak_weight": 1.0,
+  "n_objects": 11378,
+  "protocol": "5-fold out-of-fold ML probabilities; random_state=42",
+  "weight_sweep": [
+    {
+      "weight": 0.0,
+      "macro_f1": 0.7192,
+      "threshold_hz": 0.2,
+      "threshold_ph": 0.87
+    },
+    {
+      "weight": 0.05,
+      "macro_f1": 0.7438,
+      "threshold_hz": 0.22,
+      "threshold_ph": 0.89
+    },
+    {
+      "weight": 0.1,
+      "macro_f1": 0.7824,
+      "threshold_hz": 0.2,
+      "threshold_ph": 0.89
+    },
+    {
+      "weight": 0.15,
+      "macro_f1": 0.8101,
+      "threshold_hz": 0.22,
+      "threshold_ph": 0.89
+    },
+    {
+      "weight": 0.2,
+      "macro_f1": 0.8367,
+      "threshold_hz": 0.2,
+      "threshold_ph": 0.85
+    },
+    {
+      "weight": 0.25,
+      "macro_f1": 0.8614,
+      "threshold_hz": 0.22,
+      "threshold_ph": 0.85
+    },
+    {
+      "weight": 0.3,
+      "macro_f1": 0.8796,
+      "threshold_hz": 0.14,
+      "threshold_ph": 0.83
+    },
+    {
+      "weight": 0.35,
+      "macro_f1": 0.9002,
+      "threshold_hz": 0.16,
+      "threshold_ph": 0.81
+    },
+    {
+      "weight": 0.4,
+      "macro_f1": 0.9282,
+      "threshold_hz": 0.18,
+      "threshold_ph": 0.79
+    },
+    {
+      "weight": 0.45,
+      "macro_f1": 0.9527,
+      "threshold_hz": 0.2,
+      "threshold_ph": 0.75
+    },
+    {
+      "weight": 0.5,
+      "macro_f1": 0.9694,
+      "threshold_hz": 0.24,
+      "threshold_ph": 0.73
+    },
+    {
+      "weight": 0.55,
+      "macro_f1": 0.9805,
+      "threshold_hz": 0.26,
+      "threshold_ph": 0.73
+    },
+    {
+      "weight": 0.6,
+      "macro_f1": 0.9825,
+      "threshold_hz": 0.24,
+      "threshold_ph": 0.71
+    },
+    {
+      "weight": 0.65,
+      "macro_f1": 0.9827,
+      "threshold_hz": 0.26,
+      "threshold_ph": 0.69
+    },
+    {
+      "weight": 0.7,
+      "macro_f1": 0.9827,
+      "threshold_hz": 0.28,
+      "threshold_ph": 0.67
+    },
+    {
+      "weight": 0.75,
+      "macro_f1": 0.983,
+      "threshold_hz": 0.36,
+      "threshold_ph": 0.65
+    },
+    {
+      "weight": 0.8,
+      "macro_f1": 0.9833,
+      "threshold_hz": 0.34,
+      "threshold_ph": 0.63
+    },
+    {
+      "weight": 0.85,
+      "macro_f1": 0.9836,
+      "threshold_hz": 0.34,
+      "threshold_ph": 0.63
+    },
+    {
+      "weight": 0.9,
+      "macro_f1": 0.9836,
+      "threshold_hz": 0.36,
+      "threshold_ph": 0.63
+    },
+    {
+      "weight": 0.95,
+      "macro_f1": 0.9836,
+      "threshold_hz": 0.36,
+      "threshold_ph": 0.65
+    },
+    {
+      "weight": 1.0,
+      "macro_f1": 0.9838,
+      "threshold_hz": 0.38,
+      "threshold_ph": 0.55
+    }
+  ],
+  "component_comparison": {
+    "physics_only": {
+      "weight": 0.0,
+      "thresholds": [
+        0.2,
+        0.87
+      ],
+      "macro_f1": 0.7192,
+      "per_class_f1": {
+        "HABITABILITY_ZONE": 0.7465,
+        "NON_HABITABLE": 0.9925,
+        "POTENTIALLY_HABITABLE": 0.4186
+      }
+    },
+    "ml_only": {
+      "weight": 1.0,
+      "thresholds": [
+        0.38,
+        0.55
+      ],
+      "macro_f1": 0.9838,
+      "per_class_f1": {
+        "HABITABILITY_ZONE": 0.9872,
+        "NON_HABITABLE": 0.9996,
+        "POTENTIALLY_HABITABLE": 0.9647
+      }
+    },
+    "selected": {
+      "weight": 0.6,
+      "thresholds": [
+        0.24,
+        0.71
+      ],
+      "macro_f1": 0.9825,
+      "per_class_f1": {
+        "HABITABILITY_ZONE": 0.9842,
+        "NON_HABITABLE": 0.9994,
+        "POTENTIALLY_HABITABLE": 0.9639
+      }
+    }
+  },
+  "physics_score_reference_planets": {
+    "Earth": 1.0,
+    "Mars": 0.9353,
+    "Venus": 0.636,
+    "Venus (true surface temperature)": 0.2133,
+    "Hot Jupiter": 0.0,
+    "Frozen rock": 0.1629
+  }
+}

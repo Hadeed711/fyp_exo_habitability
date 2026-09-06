@@ -167,7 +167,7 @@ const Chatbot = () => {
         role: 'assistant',
         content:
           'Hi! I\'m **ARIA** — your Astrobiology Research Intelligence Assistant. ' +
-          'I know everything about the 9,614 exoplanets in this explorer, ' +
+          'I know everything about the 11,378 catalogued objects in this explorer, ' +
           'habitability science, and our ML models.\n\nWhat would you like to know?',
       }]);
     }

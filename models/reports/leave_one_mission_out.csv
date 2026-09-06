@@ -1,0 +1,4 @@
+Model Set,held_out_mission,n_objects,trained_on,macro_f1,accuracy
+unified,k2,854,kepler+tess,0.8994,0.993
+unified,kepler,4619,k2+tess,0.7521,0.9794
+unified,tess,5905,k2+kepler,0.9418,0.9959

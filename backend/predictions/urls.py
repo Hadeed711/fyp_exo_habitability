@@ -19,6 +19,7 @@ urlpatterns = [
     
     # Model information
     path('models/info/', views.models_info, name='models-info'),
+    path('models/report/', views.model_report, name='model-report'),
     
     # Health check
     path('health/', views.health_check, name='health-check'),

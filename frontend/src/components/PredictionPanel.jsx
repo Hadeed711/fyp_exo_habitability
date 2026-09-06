@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, RotateCcw, Loader2, TrendingUp, Info, Save, Trash2, LogIn, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  scoreBarColor, scoreBgColor, scoreTextColor, thresholdsFrom,
+} from '../utils/habitability';
 import { predictHabitability, explainPrediction, savePrediction, getSavedPredictions, deleteSavedPrediction } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -280,17 +283,11 @@ const PredictionPanel = () => {
     setPrediction(null);
   };
 
-  const getScoreColor = (score) => {
-    if (score >= 0.7) return 'text-green-400';
-    if (score >= 0.4) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getScoreBgColor = (score) => {
-    if (score >= 0.7) return 'bg-green-500/20 border border-green-500/30';
-    if (score >= 0.4) return 'bg-yellow-500/20 border border-yellow-500/30';
-    return 'bg-red-500/20 border border-red-500/30';
-  };
+  // Colour bands come from the thresholds the backend used to pick the class,
+  // so the colour and the label can never disagree.
+  const bands = thresholdsFrom(prediction);
+  const getScoreColor = (score) => scoreTextColor(score, bands);
+  const getScoreBgColor = (score) => scoreBgColor(score, bands);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950 shadow-[0_24px_70px_-38px_rgba(6,182,212,0.55)]">
@@ -529,10 +526,7 @@ const PredictionPanel = () => {
                     initial={{ width: 0 }}
                     animate={{ width: `${prediction.habitability_score * 100}%` }}
                     transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className={`h-full ${
-                      prediction.habitability_score >= 0.7 ? 'bg-green-500' :
-                      prediction.habitability_score >= 0.4 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`}
+                    className={`h-full ${scoreBarColor(prediction.habitability_score, bands)}`}
                   />
                 </div>
               </div>

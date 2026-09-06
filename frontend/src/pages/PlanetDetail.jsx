@@ -8,6 +8,9 @@ import {
 import { getPlanetById, predictHabitability } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import {
+  FALLBACK_THRESHOLDS, scoreBand, scoreBarColor, scoreTextColor, thresholdsFrom,
+} from '../utils/habitability';
 
 /**
  * PlanetDetail Page - Redesigned with modern animations
@@ -16,9 +19,9 @@ import Footer from '../components/Footer';
 
 // Animated planet sphere component
 const PlanetSphere = ({ habitabilityScore, className = '' }) => {
-  const color = habitabilityScore >= 0.65
+  const color = habitabilityScore >= FALLBACK_THRESHOLDS.potentially_habitable
     ? '#22c55e'
-    : habitabilityScore >= 0.35
+    : habitabilityScore >= FALLBACK_THRESHOLDS.habitability_zone
     ? '#eab308'
     : '#ef4444';
 
@@ -212,6 +215,8 @@ const PlanetDetail = () => {
 
   const missionStyle = getMissionColor(planet.mission?.full_name || planet.mission?.name);
   const scoreVal = prediction?.habitability_score || 0;
+  // Bands follow the backend's own classification thresholds.
+  const bands = thresholdsFrom(prediction);
   const hasPartialData = !planet.pl_eqt || !planet.pl_rade || !planet.pl_insol;
 
   const tabs = [
@@ -230,8 +235,7 @@ const PlanetDetail = () => {
         {/* Background gradient glow */}
         <div className="absolute inset-0 pointer-events-none">
           <div className={`absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl opacity-10
-              ${prediction?.habitability_score >= 0.65 ? 'bg-green-500' :
-                prediction?.habitability_score >= 0.35 ? 'bg-yellow-500' : 'bg-blue-500'}`} />
+              ${scoreBarColor(prediction?.habitability_score, bands)}`} />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -300,8 +304,8 @@ const PlanetDetail = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
                   className={`w-full mt-4 p-4 rounded-xl border ${
-                    scoreVal >= 0.65 ? 'bg-green-500/10 border-green-500/30' :
-                    scoreVal >= 0.35 ? 'bg-yellow-500/10 border-yellow-500/30' :
+                    scoreBand(scoreVal, bands) === 'high' ? 'bg-green-500/10 border-green-500/30' :
+                    scoreBand(scoreVal, bands) === 'mid' ? 'bg-yellow-500/10 border-yellow-500/30' :
                     'bg-red-500/10 border-red-500/30'
                   }`}
                 >
@@ -312,8 +316,7 @@ const PlanetDetail = () => {
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 200, delay: 0.5 }}
                       className={`text-2xl font-bold ${
-                        scoreVal >= 0.65 ? 'text-green-400' :
-                        scoreVal >= 0.35 ? 'text-yellow-400' : 'text-red-400'
+                        scoreTextColor(scoreVal, bands)
                       }`}
                     >
                       {(scoreVal * 100).toFixed(1)}%
@@ -325,14 +328,12 @@ const PlanetDetail = () => {
                       animate={{ width: `${scoreVal * 100}%` }}
                       transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }}
                       className={`h-full rounded-full ${
-                        scoreVal >= 0.65 ? 'bg-green-500' :
-                        scoreVal >= 0.35 ? 'bg-yellow-500' : 'bg-red-500'
+                        scoreBarColor(scoreVal, bands)
                       }`}
                     />
                   </div>
                   <p className={`text-xs mt-2 font-medium ${
-                    scoreVal >= 0.65 ? 'text-green-400' :
-                    scoreVal >= 0.35 ? 'text-yellow-400' : 'text-red-400'
+                    scoreTextColor(scoreVal, bands)
                   }`}>
                     {prediction.classification?.replace(/_/g, ' ')}
                   </p>
@@ -560,16 +561,15 @@ const PlanetDetail = () => {
                         <div className="space-y-3">
                           {/* Main score */}
                           <div className={`p-5 rounded-xl border ${
-                            scoreVal >= 0.65 ? 'bg-green-500/10 border-green-500/25' :
-                            scoreVal >= 0.35 ? 'bg-yellow-500/10 border-yellow-500/25' :
+                            scoreBand(scoreVal, bands) === 'high' ? 'bg-green-500/10 border-green-500/25' :
+                            scoreBand(scoreVal, bands) === 'mid' ? 'bg-yellow-500/10 border-yellow-500/25' :
                             'bg-red-500/10 border-red-500/25'
                           }`}>
                             <div className="flex items-center justify-between mb-3">
                               <div>
                                 <p className="text-sm text-slate-400">Habitability Score</p>
                                 <p className={`text-4xl font-bold mt-1 ${
-                                  scoreVal >= 0.65 ? 'text-green-400' :
-                                  scoreVal >= 0.35 ? 'text-yellow-400' : 'text-red-400'
+                                  scoreTextColor(scoreVal, bands)
                                 }`}>
                                   {(scoreVal * 100).toFixed(1)}%
                                 </p>
@@ -595,8 +595,7 @@ const PlanetDetail = () => {
                                 animate={{ width: `${scoreVal * 100}%` }}
                                 transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
                                 className={`h-full rounded-full ${
-                                  scoreVal >= 0.65 ? 'bg-green-500' :
-                                  scoreVal >= 0.35 ? 'bg-yellow-500' : 'bg-red-500'
+                                  scoreBarColor(scoreVal, bands)
                                 }`}
                               />
                             </div>

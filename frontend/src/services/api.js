@@ -129,11 +129,27 @@ export const batchPredict = async (planetsData) => {
 };
 
 /**
- * Get model metadata and performance metrics
+ * Get model metadata and the blend calibration currently in use
  * @returns {Promise} - Model information
  */
 export const getModelInfo = async () => {
   const response = await apiClient.get('models/info/');
+  return response.data;
+};
+
+/**
+ * Get the full evaluation record for a model: out-of-fold per-class metrics,
+ * degraded-input robustness, leave-one-mission-out generalisation, and the
+ * caveat that labels are a physics rule rather than observed ground truth.
+ *
+ * Pages that quote accuracy figures MUST read them from here rather than
+ * hard-coding them, so published numbers cannot drift from the trained
+ * artefacts.
+ * @param {string} mission - 'auto' (default, pooled model), 'k2', 'kepler', 'tess'
+ * @returns {Promise} - Evaluation record
+ */
+export const getModelReport = async (mission = 'auto') => {
+  const response = await apiClient.get(`models/report/?mission=${encodeURIComponent(mission)}`);
   return response.data;
 };
 

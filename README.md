@@ -29,7 +29,7 @@
 
 ## Overview
 
-The Exoplanet Habitability Explorer processes 8,245 exoplanet candidates from three NASA missions and assigns each a habitability classification using a hybrid scoring system that combines physics-based Earth Similarity Index calculations with mission-specific ML classifiers. The web application lets users explore, filter, and compare planets, run custom habitability predictions, and visualise orbital systems in an interactive 3D environment.
+The Exoplanet Habitability Explorer processes 11,378 exoplanet candidates from three NASA missions and assigns each a habitability classification using a hybrid scoring system that combines a physics model with a gradient-boosted classifier. The web application lets users explore, filter, and compare planets, run custom habitability predictions, and visualise orbital systems in an interactive 3D environment.
 
 ---
 
@@ -40,7 +40,7 @@ The Exoplanet Habitability Explorer processes 8,245 exoplanet candidates from th
 | **3D Orbital Viewer** | Real-time WebGL visualisation using React Three Fiber; temperature-driven textures, gas giant rings, habitable zone indicator |
 | **Habitability Prediction Studio** | Adjust 7 planetary/stellar parameters via sliders and get an instant ML-backed habitability score with factor breakdown |
 | **Planet Comparison** | Select up to 4 exoplanets for side-by-side comparison with a data table plus Chart.js radar and bar charts |
-| **Explore & Filter** | Browse all 8,245 planets with filters by mission, habitability class, and free-text search |
+| **Explore & Filter** | Browse all 11,378 objects with filters by mission, habitability class, and free-text search |
 | **ARIA Chatbot** | Groq-powered (Llama 3.3 70B) assistant. Dataset facts are baked into its system prompt — it has no live database access |
 | **Saved Predictions** | Authenticated users can save, name, and reload custom habitability predictions |
 | **Batch Upload** | Submit a CSV of custom planet parameters for batch ML prediction |
@@ -89,7 +89,7 @@ The Exoplanet Habitability Explorer processes 8,245 exoplanet candidates from th
 > models still load.
 
 ### Infrastructure
-- **Database**: Neon (serverless PostgreSQL) — live, 8,245 planets
+- **Database**: Neon (serverless PostgreSQL) — live, 11,378 objects
 - **Frontend hosting**: Vercel — live at `exoplanet-frontend-seven.vercel.app`
 - **Backend hosting**: Railway — **currently not running** (see below)
 - **AI chatbot**: Groq Cloud API (Llama 3.3 70B)
@@ -151,7 +151,7 @@ FYP/
 │   ├── chatbot/                 # ARIA chatbot endpoint (Groq)
 │   ├── backend/                 # Django settings, URLs, CSP middleware
 │   ├── load_data_to_db.py       # Loads processed CSVs into the database
-│   ├── backfill_planet_names.py # Repairs placeholder planet names (see below)
+│   ├── backfill_planet_names.py # Legacy one-off repair for pre-rebuild databases
 │   ├── .env.example             # Backend environment template
 │   └── manage.py
 │
@@ -166,36 +166,47 @@ FYP/
 │
 ├── data/
 │   ├── raw/                     # Original NASA archive CSVs (k2, kepler, TOI)
-│   └── processed/               # Cleaned, ML-ready datasets (train/val/test splits)
-│       ├── k2/                  # 1,937 rows
-│       ├── kepler/              # 2,742 rows
-│       └── tess/                # 4,935 rows
+│   └── processed/
+│       └── habitability_catalogue.csv   # Labelled catalogue — 11,378 objects.
+│                                        # The ONE artefact both the models and
+│                                        # the database are built from.
 │
-├── models/                      # Trained classifiers (.pkl) + evaluation CSVs
-│   ├── k2_xgboost_model.pkl         # K2 — XGBoost (270 features)
-│   ├── kepler_xgboost_model.pkl     # Kepler — XGBoost (130 features)
-│   ├── tess_random_forest_model.pkl # TESS — Random Forest (44 features)
-│   ├── ensemble_model.pkl           # Experimental combined model
-│   └── *_model_performance.csv      # Per-mission metrics
+├── scripts/                     # Reproducible pipeline (no Django, no DB, no network)
+│   ├── train_models.py          # Raw archives -> models, artifacts, catalogue, reports
+│   └── calibrate_blend.py       # Selects the blend weight + class thresholds
 │
-├── artifacts/                   # Preprocessors only — scalers, encoders, metadata
-│   ├── k2/                      # minmax + standard scaler, label encoder, metadata
-│   ├── kepler/
-│   └── tess/
+├── models/                      # Trained classifiers (.pkl) + evaluation
+│   ├── unified_model.pkl        # DEFAULT — pooled across all missions
+│   ├── k2_model.pkl             # Per-mission ablations
+│   ├── kepler_model.pkl
+│   ├── tess_model.pkl
+│   ├── model_performance.csv    # Headline out-of-fold macro F1
+│   └── reports/                 # Per-class metrics, degraded-input robustness,
+│                                # leave-one-mission-out, blend calibration
+│
+├── artifacts/                   # Preprocessors — scaler, encoder, metadata per model
+│   ├── unified/                 # minmax scaler, label encoder, metadata (.pkl + .json)
+│   ├── k2/  kepler/  tess/
 │
 ├── docs/                        # FYP report drafts (.docx) + extracted text
-├── tests/                       # pytest suite (ML models + habitability scorer)
-├── test_models.py               # Standalone model evaluation harness
+├── tests/                       # pytest suite — physics, scoring, scorer, API
+├── test_models.py               # Standalone CLI predictor (calls the real scorer)
 ├── vercel.json                  # Frontend SPA rewrite rules
 ├── Procfile / runtime.txt       # Railway backend deployment
 └── requirements.txt             # Python dependencies
 ```
 
-> `backend/api/` contains only `habitability_scorer.py` and `__init__.py`. The
-> app is deliberately **not** in `INSTALLED_APPS` — it survives purely as the
-> import path for the scorer. Its unused Django scaffolding (views, urls, models,
-> serializers, admin, apps, tests) was deleted; add new endpoints to
-> `predictions/` instead.
+> `backend/api/` holds the scoring core, imported by the Django apps and by the
+> training pipeline alike:
+> - `physics.py` — canonical schema, physics derivations, the 25-feature vector,
+>   and the labelling rule. **Imported by both `scripts/train_models.py` and the
+>   serving path**, which is what makes train/serve feature skew structurally
+>   impossible.
+> - `scoring.py` — the deterministic physics score and the Earth Similarity Index.
+> - `habitability_scorer.py` — loads the models, blends classifier with physics.
+>
+> It is deliberately **not** in `INSTALLED_APPS`: it holds no Django models and
+> needs no migrations.
 
 ```text
 ```
@@ -233,8 +244,10 @@ cp backend/.env.example backend/.env
 cd backend
 python manage.py migrate
 
-# 6. Load planet data into the database
-python load_data_to_db.py
+# 6. Load the labelled catalogue into the database
+python load_data_to_db.py --dry-run    # inspect what would change
+python load_data_to_db.py              # first load
+# python load_data_to_db.py --replace  # wipe and reload after retraining
 
 # 7. Start the development server
 python manage.py runserver       # API available at http://localhost:8000
@@ -257,17 +270,43 @@ All are read in `backend/backend/settings.py` (except `GROQ_API_KEY`, read in `b
 
 > If none of `DATABASE_URL` or `DB_PASSWORD` is set, Django falls back to a local SQLite file at `backend/db.sqlite3`.
 
-#### Repairing placeholder planet names
+#### Rebuilding the models and the catalogue
 
-The Kepler and TESS processed datasets have no `pl_name` column — they use `kepler_name` and `toi`. A database loaded before this was handled will contain positional placeholders (`Kepler_planet_0`, `TESS_planet_0`) instead of catalogue designations, which breaks name search. To repair an existing database:
+Both are generated from `data/raw/` and neither needs Django, a database, or
+network access:
 
 ```bash
-cd backend
-python backfill_planet_names.py            # dry run — prints every planned rename
-python backfill_planet_names.py --apply    # commit the renames in one transaction
+python scripts/train_models.py      # models, artifacts, labelled catalogue, reports
+python scripts/calibrate_blend.py   # blend weight + class thresholds
 ```
 
-Fresh loads via `load_data_to_db.py` already resolve real names and need no repair.
+`train_models.py` writes **one** labelled catalogue,
+`data/processed/habitability_catalogue.csv`, and `load_data_to_db.py` is the
+only thing that reads it. That is deliberate: the classes shown on the site and
+the classes the model was trained on are the same rows, by construction. They
+previously came from separate exports and had drifted — the database contained
+4,839 Kepler objects the archive dispositions as false positives.
+
+After retraining, reload the database so the two stay in step:
+
+```bash
+cd backend && python load_data_to_db.py --replace
+```
+
+The scorer refuses to load any model whose feature list does not match
+`backend/api/physics.py`, so a stale artefact fails loudly at startup rather
+than silently producing nonsense.
+
+#### Running the tests
+
+```bash
+python -m pytest tests/ -q
+```
+
+115 tests covering the physics derivations, the scoring formulas, train/serve
+feature alignment, the response contract, and the API endpoints. No database
+required. Reference bodies (Earth, Mars, Venus, a hot Jupiter) are asserted, so
+a regression in the score cannot ship silently.
 
 ### Frontend Setup
 
@@ -295,46 +334,112 @@ Copy `frontend/.env.example` to `frontend/.env` for local overrides, or set the 
 
 ## ML Models
 
-Three independent mission-specific classifiers were trained, each optimised for the feature space available from that mission's instrument:
+One **unified** XGBoost classifier trained on all 11,378 objects pooled across
+the three missions is the default. Per-mission models are also trained, but only
+as an ablation: just 126 objects in the whole catalogue meet the
+potentially-habitable criteria, and splitting those across three models leaves
+too few in each to estimate anything reliably.
 
-| Mission | Algorithm | Train / Val / Test | Features | Accuracy | Weighted F1 |
-|---|---|---|---|---|---|
-| Kepler | XGBoost | 1,645 / 548 / 549 | 130 | **100%** | 1.000 |
-| K2 | XGBoost | 1,162 / 387 / 388 | 270 | **99.2%** | 0.991 |
-| TESS | Random Forest | 2,961 / 987 / 987 | 44 | **100%** | 1.000 |
+Headline metric is **out-of-fold macro F1** — every object scored by a model
+that never saw it, so rare classes report their full support. Macro, not
+accuracy: 93% of objects are non-habitable, so accuracy would be dominated by
+the majority class.
 
-> **Read these headline figures with care.** They are weighted over all three
-> classes, and the datasets are extremely imbalanced — K2 has 5 potentially
-> habitable planets out of 1,937, TESS has 10 out of 4,935. `models/model_evaluation_report.csv`
-> records the per-class breakdown, where minority-class F1 is far lower
-> (0.00 for K2's single potentially-habitable test sample, 0.50 for TESS's two).
-> This imbalance is precisely why the production score weights physics at 90%
-> and the ML output at only 10%. See [models/README.md](./models/README.md).
+| Model set | Estimator | Objects | OOF macro F1 | Fold SD |
+|---|---|---|---|---|
+| **unified** (default) | XGBoost | 11,378 | **0.983** | 0.012 |
+| kepler | Random Forest | 4,619 | 0.989 | 0.006 |
+| tess | XGBoost | 5,905 | 0.937 | 0.072 |
+| k2 | Random Forest | 854 | 0.767 | 0.174 |
+
+Per-class, unified model:
+
+| Class | Precision | Recall | F1 | Objects |
+|---|---|---|---|---|
+| POTENTIALLY_HABITABLE | 0.976 | 0.952 | 0.964 | 126 |
+| HABITABILITY_ZONE | 0.981 | 0.989 | 0.985 | 628 |
+| NON_HABITABLE | 1.000 | 0.999 | 0.999 | 10,624 |
+
+> **Read this before quoting any figure.** The habitability labels are a
+> **documented physics rule** (`backend/api/physics.py`, `LABEL_RULE`), not
+> observed ground truth — no exoplanet has confirmed habitability. The
+> classifier is trained on the same observables that rule consumes, so it is a
+> **learned surrogate** of it. A high score means it reproduces the rule
+> faithfully; it is **not** evidence of scientific discovery.
+
+### Where the ML earns its place
+
+Real catalogue rows are incomplete, and the labelling rule simply cannot be
+evaluated when the quantities it needs are missing. The model can:
+
+| Observables withheld | Model accuracy | Rule accuracy | Rule undefined |
+|---|---|---|---|
+| 0 | 1.000 | 1.000 | 0% |
+| 2 | 0.994 | 0.412 | 58.7% |
+| 4 | 0.976 | 0.048 | 95.2% |
+
+It manages this because it is trained on deliberately masked rows and because
+nine `imputed_*` features tell it which inputs were measured and which were
+derived from physics.
+
+**Leave-one-mission-out** (train on two missions, test on the third) gives macro
+F1 of 0.942 / 0.899 / 0.752 holding out TESS / K2 / Kepler — a genuine
+generalisation test across different instruments and detection biases.
+
+Live figures: `GET /api/models/report/`. Full detail:
+[models/README.md](./models/README.md).
 
 ### Scoring Architecture
 
-The final habitability score is a **hybrid** of physics-based and ML-based components:
+The habitability score blends the classifier with a deterministic physics
+calculation:
 
 ```
-habitability_score = 0.10 × ML_score + 0.90 × physics_score
+habitability_score = 0.60 × ML_score + 0.40 × physics_score
 ```
 
-The physics score combines:
-- **Temperature similarity** — how close equilibrium temp is to Earth's 255 K
-- **Radius similarity** — how close planet radius is to 1.0 R⊕
-- **Insolation similarity** — how close flux is to 1.0 S⊕
-- **Habitable zone proximity** — derived from orbital distance / orbital period via Kepler's third law
-- **Stellar type factor** — weighting for G/K/M/F-type host stars
+`ML_score` collapses the class posterior onto one axis:
+`P(habitable) × 1.0 + P(zone) × 0.5 + P(non-habitable) × 0.0`.
 
-This weighting ensures Earth-like parameters consistently score above 90% regardless of potential ML model bias introduced by the heavily imbalanced training distribution.
+`physics_score` is closed-form and hand-checkable — the geometric mean of
+radius, temperature and flux similarity to Earth, multiplied by habitable-zone
+membership and a stellar-type factor. The geometric mean means any single
+disqualifying property drags the whole score down: a Jupiter-radius planet
+scores zero regardless of its orbit.
+
+**The 0.60 weight is calibrated, not chosen by hand.**
+`scripts/calibrate_blend.py` sweeps the weight and the class thresholds to
+maximise macro F1 against the physics label across all 11,378 objects, using
+out-of-fold probabilities so the weight is not tuned against memorised answers:
+
+| Configuration | Macro F1 |
+|---|---|
+| physics only (w=0.00) | 0.719 |
+| **selected (w=0.60)** | **0.983** |
+| classifier only (w=1.00) | 0.984 |
+
+The curve is flat above w≈0.55, so the smallest weight within 0.002 of the peak
+is selected — keeping as much of the auditable physics term as the data
+supports.
+
+> An earlier version of this project used `0.10 × ML + 0.90 × physics`. That was
+> not a design decision: the classifier was being served ~90% zero-filled
+> features (it expected 130–270 columns while the API supplied 9), producing
+> NaNs and values near −5232 against training data scaled to [0, 1]. Its output
+> had to be suppressed to keep the demo sensible. With the feature pipeline
+> fixed, the measured optimum moved to 0.60.
 
 ### Classification Thresholds
 
 | Class | Score Range | Meaning |
 |---|---|---|
-| `POTENTIALLY_HABITABLE` | ≥ 0.66 | Earth-like conditions — rocky, in habitable zone |
-| `HABITABILITY_ZONE` | 0.30 – 0.65 | In or near HZ but not Earth-sized, or partial data |
-| `NON_HABITABLE` | < 0.30 | Too hot/cold, gas giant, or extreme orbit |
+| `POTENTIALLY_HABITABLE` | ≥ 0.71 | Earth-like conditions — rocky, in habitable zone |
+| `HABITABILITY_ZONE` | 0.24 – 0.70 | In or near HZ but not Earth-sized, or partial data |
+| `NON_HABITABLE` | < 0.24 | Too hot/cold, gas giant, or extreme orbit |
+
+These thresholds are calibrated alongside the blend weight and are served with
+every prediction as `score_thresholds`, so the UI colours a score using the same
+cut-offs the backend used to label it.
 
 ---
 
@@ -373,7 +478,8 @@ All endpoints are prefixed with `/api/`.
 | `POST` | `/predict/` | Single-planet habitability prediction |
 | `POST` | `/predict/batch/` | Batch prediction from CSV upload |
 | `POST` | `/explain/` | Prediction plus SHAP / LIME feature attribution |
-| `GET` | `/models/info/` | Loaded model metadata and performance metrics |
+| `GET` | `/models/info/` | Loaded models, feature list, and the active blend calibration |
+| `GET` | `/models/report/?mission=auto` | Full evaluation record: out-of-fold per-class metrics, degraded-input robustness, leave-one-mission-out transfer, and the label caveat. **Pages quoting accuracy read from here** so published numbers cannot drift from the artefacts. |
 | `GET` | `/health/` | Service health check (model load status) |
 
 **Single prediction request body:**

@@ -1,0 +1,227 @@
+{
+  "dataset_name": "kepler",
+  "classification_type": "habitability_3class",
+  "feature_names": [
+    "pl_rade",
+    "pl_eqt",
+    "pl_insol",
+    "pl_orbper",
+    "pl_orbsmax",
+    "pl_orbeccen",
+    "st_teff",
+    "st_rad",
+    "st_mass",
+    "st_lum",
+    "pl_orbper_log",
+    "pl_orbsmax_log",
+    "pl_insol_log",
+    "radius_similarity",
+    "temp_similarity",
+    "insol_similarity",
+    "planet_star_radius_ratio",
+    "orbit_stellar_radii",
+    "hz_position",
+    "imputed_pl_rade",
+    "imputed_pl_eqt",
+    "imputed_pl_insol",
+    "imputed_pl_orbper",
+    "imputed_pl_orbsmax",
+    "imputed_pl_orbeccen",
+    "imputed_st_teff",
+    "imputed_st_rad",
+    "imputed_st_mass"
+  ],
+  "n_features": 28,
+  "target_classes": [
+    "HABITABILITY_ZONE",
+    "NON_HABITABLE",
+    "POTENTIALLY_HABITABLE"
+  ],
+  "n_classes": 3,
+  "model_type": "XGBoost",
+  "total_samples": 4619,
+  "split_sizes": {
+    "train": 3233,
+    "train_augmented": 6466,
+    "val": 693,
+    "test": 693
+  },
+  "class_distribution": {
+    "NON_HABITABLE": 4082,
+    "HABITABILITY_ZONE": 428,
+    "POTENTIALLY_HABITABLE": 109
+  },
+  "label_rule": {
+    "POTENTIALLY_HABITABLE": {
+      "pl_rade": [
+        0.5,
+        2.0
+      ],
+      "pl_insol": [
+        0.25,
+        4.0
+      ],
+      "pl_eqt": [
+        180.0,
+        310.0
+      ],
+      "pl_orbper": [
+        10.0,
+        500.0
+      ]
+    },
+    "HABITABILITY_ZONE": {
+      "pl_insol": [
+        0.25,
+        4.0
+      ],
+      "pl_eqt": [
+        200.0,
+        350.0
+      ]
+    }
+  },
+  "label_source": "rule-based physics proxy (physics.assign_label)",
+  "evaluation": {
+    "validation_macro_f1": {
+      "XGBoost": 0.9971,
+      "RandomForest": 0.9971
+    },
+    "test_macro_f1": 0.96,
+    "test_per_class": [
+      {
+        "class": "HABITABILITY_ZONE",
+        "precision": 0.9692,
+        "recall": 0.9844,
+        "f1": 0.9767,
+        "support": 64,
+        "average_precision": 0.9987
+      },
+      {
+        "class": "NON_HABITABLE",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 613,
+        "average_precision": 1.0
+      },
+      {
+        "class": "POTENTIALLY_HABITABLE",
+        "precision": 0.9333,
+        "recall": 0.875,
+        "f1": 0.9032,
+        "support": 16,
+        "average_precision": 0.9838
+      }
+    ],
+    "test_confusion_matrix": [
+      [
+        63,
+        0,
+        1
+      ],
+      [
+        0,
+        613,
+        0
+      ],
+      [
+        2,
+        0,
+        14
+      ]
+    ],
+    "cross_validation": {
+      "macro_f1_mean": 0.9929559584660611,
+      "macro_f1_std": 0.0040945643995928295,
+      "per_class_f1_mean": [
+        0.992982217529543,
+        0.9996324278944801,
+        0.9862532299741602
+      ],
+      "folds": 5
+    },
+    "degraded_input": [
+      {
+        "observables_withheld": 0,
+        "n_objects": 693,
+        "model_accuracy": 0.9957,
+        "rule_accuracy": 1.0,
+        "rule_undefined_rate": 0.0
+      },
+      {
+        "observables_withheld": 1,
+        "n_objects": 693,
+        "model_accuracy": 0.9942,
+        "rule_accuracy": 0.8831,
+        "rule_undefined_rate": 0.1169
+      },
+      {
+        "observables_withheld": 2,
+        "n_objects": 693,
+        "model_accuracy": 0.9885,
+        "rule_accuracy": 0.6089,
+        "rule_undefined_rate": 0.3911
+      },
+      {
+        "observables_withheld": 3,
+        "n_objects": 693,
+        "model_accuracy": 0.9885,
+        "rule_accuracy": 0.3564,
+        "rule_undefined_rate": 0.6436
+      },
+      {
+        "observables_withheld": 4,
+        "n_objects": 693,
+        "model_accuracy": 0.9812,
+        "rule_accuracy": 0.1227,
+        "rule_undefined_rate": 0.8773
+      }
+    ],
+    "cross_mission_transfer": [
+      {
+        "evaluated_on": "k2",
+        "n_objects": 854,
+        "macro_f1": 0.8667,
+        "accuracy": 0.9871
+      },
+      {
+        "evaluated_on": "tess",
+        "n_objects": 5905,
+        "macro_f1": 0.9347,
+        "accuracy": 0.9956
+      }
+    ]
+  },
+  "feature_importances": {
+    "radius_similarity": 0.234325,
+    "temp_similarity": 0.226507,
+    "pl_eqt": 0.186163,
+    "pl_rade": 0.077403,
+    "pl_insol_log": 0.034549,
+    "pl_orbper_log": 0.032005,
+    "pl_orbper": 0.026771,
+    "pl_insol": 0.02345,
+    "hz_position": 0.014822,
+    "planet_star_radius_ratio": 0.012926,
+    "st_rad": 0.012614,
+    "imputed_pl_insol": 0.011512,
+    "pl_orbsmax_log": 0.010995,
+    "pl_orbsmax": 0.010415,
+    "orbit_stellar_radii": 0.010396,
+    "insol_similarity": 0.010196,
+    "st_mass": 0.010104,
+    "imputed_pl_rade": 0.009083,
+    "st_teff": 0.008922,
+    "imputed_pl_orbper": 0.008662,
+    "imputed_st_mass": 0.006279,
+    "imputed_pl_eqt": 0.006072,
+    "st_lum": 0.004619,
+    "imputed_pl_orbsmax": 0.004216,
+    "imputed_st_rad": 0.003889,
+    "imputed_st_teff": 0.003105,
+    "pl_orbeccen": 0.0,
+    "imputed_pl_orbeccen": 0.0
+  },
+  "caveat": "Labels are a documented physics rule, not observed ground truth. In-distribution scores measure how well the model reproduces that rule. The degraded_input and cross_mission_transfer sections are the results that demonstrate capability beyond the rule."
+}
