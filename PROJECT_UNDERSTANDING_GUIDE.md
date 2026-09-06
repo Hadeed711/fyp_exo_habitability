@@ -1,908 +1,1251 @@
-# AI Exoplanet Habitability Explorer — Complete Understanding Guide
+# Complete Understanding Guide
 
-**Project:** AI Exoplanet Habitability Explorer  
-**Team:** Hadeed Ahmad (2022-ag-7746) & Tahzeeb Arif (2022-ag-8065)  
-**Supervisor:** Mam Nabeela Ashraf  
-**Institution:** BSCS SE — Final Year Project  
-**Updated:** April 2026 — reflects actual production stack
+**AI Exoplanet Habitability Explorer**
+
+This guide is written for someone who has to *explain* this project — in a viva,
+a code review, or to a new teammate — and therefore needs to actually understand
+it, not just run it.
+
+Every number, formula and file description here was verified against the source
+code and the live database on **1 September 2026**. Where the code and the older
+documentation disagreed, the code won. Where something is broken, incomplete or
+misleading, this guide says so plainly rather than glossing over it — you are far
+better off knowing the weak points before an examiner finds them.
 
 ---
 
 ## Table of Contents
 
-1. [Project Overview](#1-project-overview)
-2. [Full File Structure](#2-full-file-structure)
-3. [The Science Behind Habitability](#3-the-science-behind-habitability)
-4. [Dataset & Feature Selection — The Deep Why](#4-dataset--feature-selection--the-deep-why)
-5. [What We Cannot Predict and Why](#5-what-we-cannot-predict-and-why)
-6. [Machine Learning Models — Design Decisions](#6-machine-learning-models--design-decisions)
-7. [Habitability Scoring System](#7-habitability-scoring-system)
-8. [System Limitations & Honest Assessment](#8-system-limitations--honest-assessment)
-9. [Backend API Architecture](#9-backend-api-architecture)
-10. [Frontend Architecture](#10-frontend-architecture)
-11. [How a Prediction Works End-to-End](#11-how-a-prediction-works-end-to-end)
-12. [AI Explainability — SHAP & LIME](#12-ai-explainability--shap--lime)
-13. [Project Phases & Status](#13-project-phases--status)
+**Part 1 — Orientation**
+1. [What this project actually is](#1-what-this-project-actually-is)
+2. [The 60-second mental model](#2-the-60-second-mental-model)
+3. [Running it locally](#3-running-it-locally)
+
+**Part 2 — The Science**
+4. [What "habitable" means here](#4-what-habitable-means-here)
+5. [The data: where it comes from and what happens to it](#5-the-data-where-it-comes-from-and-what-happens-to-it)
+
+**Part 3 — The Machine Learning**
+6. [The three models and why there are three](#6-the-three-models-and-why-there-are-three)
+7. [The scoring engine — the heart of the project](#7-the-scoring-engine--the-heart-of-the-project)
+8. [Explainability: SHAP, LIME and the fallback](#8-explainability-shap-lime-and-the-fallback)
+
+**Part 4 — The Code, File by File**
+9. [Repository map](#9-repository-map)
+10. [Backend, file by file](#10-backend-file-by-file)
+11. [Frontend, file by file](#11-frontend-file-by-file)
+
+**Part 5 — Reality Checks**
+12. [A prediction, traced end to end](#12-a-prediction-traced-end-to-end)
+13. [What this system cannot do](#13-what-this-system-cannot-do)
+14. [Known problems and rough edges](#14-known-problems-and-rough-edges)
+15. [Questions you should be ready for](#15-questions-you-should-be-ready-for)
+
+---
+---
+
+# Part 1 — Orientation
+
+## 1. What this project actually is
+
+A full-stack web application that takes the physical measurements of an exoplanet
+— its size, temperature, how much starlight it receives, its orbit, and the
+properties of its star — and produces a **habitability score between 0 and 1**,
+along with a classification and an explanation of which inputs drove the result.
+
+It ships with 8,245 real planets from three NASA missions, a 3D orbital viewer,
+a prediction studio where you can invent your own planet with sliders, batch CSV
+prediction, user accounts, and an AI chatbot.
+
+### The single most important distinction
+
+> **This system predicts *physical plausibility*, not life.**
+
+It cannot detect life, water, oxygen, or an atmosphere. It answers one narrower
+question: *given the handful of properties a transit survey can actually measure,
+how similar is this planet to Earth, and does it sit where liquid water could in
+principle exist?*
+
+If you remember one sentence from this guide, make it that one. Almost every
+limitation in [Section 13](#13-what-this-system-cannot-do) follows from it.
+
+### The parts
+
+| Layer | Technology | What it does |
+|---|---|---|
+| Frontend | React 19 + Vite, Tailwind, Three.js | Everything the user sees |
+| Backend | Django 6 + Django REST Framework | REST API, auth, ML serving |
+| Database | Neon (serverless PostgreSQL) | 8,245 planets, users, saved predictions |
+| ML | XGBoost + Random Forest (`.pkl` files) | Three mission-specific classifiers |
+| Scoring | Custom Python (`habitability_scorer.py`) | Blends ML output with physics |
+| Chatbot | Groq Cloud API (Llama 3.3 70B) | "ARIA" assistant |
 
 ---
 
-## 1. Project Overview
+## 2. The 60-second mental model
 
-### What Is This System?
+There are **two separate flows** in this application. Confusing them is the most
+common misunderstanding, so learn the difference first.
 
-This is an AI-powered web application that predicts the **habitability potential** of exoplanets (planets outside our solar system) discovered by NASA missions. It uses machine learning trained on 9,614 real exoplanets from three missions — K2, Kepler, and TESS.
-
-### Key Distinction
-
-We do **not** claim to determine if life actually exists on these planets. We predict the *physical suitability* for life based on properties we can measure from Earth using telescopes. This is a crucial difference explained fully in [Section 5](#5-what-we-cannot-predict-and-why).
-
-### Core Deliverables
-
-| Deliverable | Status | Detail |
-|-------------|--------|--------|
-| 3 trained ML models | ✅ Complete | K2 XGBoost (99.2%), Kepler XGBoost (100%), TESS RF (100%) |
-| REST API backend | ✅ Complete | Django + DRF, **Neon DB (PostgreSQL)**, 8,245 planets loaded |
-| Interactive frontend | ✅ Complete | React 19, 3D viewer, prediction panel, explore page |
-| AI explainability | ✅ Complete | SHAP + LIME + fallback for every prediction |
-| Solar system 3D viewer | ✅ Complete | 8 planets, moons, asteroid belt, Kuiper belt, NEOs |
-| Artemis 2 trajectory | ✅ Complete | Animated free-return path with toggle |
-| Auth (login/signup) | ✅ Complete | JWT-based, user profiles + saved predictions in Neon DB |
-| Chatbot — ARIA | ✅ Complete | **Groq Cloud API** (Llama 3.3 70B), no local LLM needed |
-
----
-
-## 2. Full File Structure
+### Flow A — Browsing stored planets (no ML at request time)
 
 ```
-FYP/
-├── PROJECT_ROADMAP.md              Master project timeline
-├── PROJECT_UNDERSTANDING_GUIDE.md  This file — deep system explanation
-├── TESTING_GUIDE.md                How to test all features
-├── TEST_MODELS_README.md           ML model evaluation guide
-├── batch_prediction_test_sample.csv Sample data for batch API testing
-│
-├── data/
-│   ├── raw/
-│   │   ├── k2_dataset.csv          Raw K2 mission data
-│   │   ├── keplar_dataset.csv      Raw Kepler mission data (note: typo in filename kept)
-│   │   └── TOI_dataset.csv         Raw TESS Objects of Interest data
-│   └── processed/
-│       ├── k2/      (7 CSV files: full, train, val, test + normalized versions)
-│       ├── kepler/  (7 CSV files)
-│       └── tess/    (7 CSV files)
-│
-├── models/
-│   ├── k2_xgboost_model.pkl        K2 mission XGBoost (99.2% accuracy)
-│   ├── kepler_xgboost_model.pkl    Kepler XGBoost (100% accuracy)
-│   ├── tess_random_forest_model.pkl TESS Random Forest (100% accuracy)
-│   ├── ensemble_model.pkl          Experimental combined model
-│   └── *.csv                       Performance metrics and evaluation reports
-│
-├── artifacts/
-│   ├── k2/
-│   │   ├── k2_habitability_minmax_scaler.pkl   Feature normalizer
-│   │   ├── k2_habitability_metadata.pkl         Feature names + class info
-│   │   └── (encoder .pkl)
-│   ├── kepler/  (same structure)
-│   └── tess/    (same structure)
-│
-├── notebooks/
-│   ├── 01_k2_habitability.ipynb         K2 data preprocessing
-│   ├── 02_kepler_habitability.ipynb     Kepler preprocessing
-│   ├── 03_tess_toi_habitability.ipynb   TESS preprocessing
-│   ├── 04a_ml_k2_mission.ipynb          K2 model training
-│   ├── 04b_ml_kepler_mission.ipynb      Kepler model training
-│   ├── 04c_ml_tess_mission.ipynb        TESS model training
-│   └── 05_model_comparison.ipynb        Model comparison & final selection
-│
-├── backend/
-│   ├── manage.py
-│   ├── load_data_to_db.py                Loads processed CSVs into the database
-│   ├── backfill_planet_names.py          Repairs placeholder planet names
-│   ├── .env.example                      Backend environment template
-│   ├── .env                             DB + API key config (Neon DB credentials, GROQ_API_KEY)
-│   ├── backend/                         Django project settings
-│   │   ├── settings.py                  Uses Neon DB (PostgreSQL) when DB_PASSWORD set; SQLite fallback
-│   │   └── urls.py
-│   ├── api/
-│   │   ├── habitability_scorer.py       MAIN ML scoring engine (used by backend)
-│   │   └── urls.py
-│   ├── planets/
-│   │   ├── models.py                    Planet + Mission DB models (stored in Neon DB)
-│   │   ├── views.py                     List, detail, search, stats endpoints
-│   │   └── serializers.py
-│   ├── predictions/
-│   │   ├── ai_service.py                ML service layer (SHAP, LIME, fallback)
-│   │   ├── views.py                     /predict/, /predict/batch/, /explain/
-│   │   └── serializers.py
-│   ├── chatbot/
-│   │   ├── views.py                     ARIA chatbot — Groq Cloud API (Llama 3.3 70B)
-│   │   └── urls.py
-│   └── users/
-│       ├── models.py                    UserProfile (base64 avatar) + SavedPrediction (JSONField)
-│       └── views.py                     register, login, me, logout, saved CRUD endpoints
-│
-└── frontend/
-    ├── package.json
-    ├── vite.config.js                   Proxy /api/* → localhost:8000
-    └── src/
-        ├── App.jsx                      Router + Chatbot always mounted
-        ├── services/api.js              Axios layer for all API calls
-        ├── pages/
-        │   ├── Home.jsx                 Landing page
-        │   ├── ExplorePlanets.jsx       Main page — search + 3D + grid + prediction
-        │   ├── PlanetDetail.jsx         Full planet detail + ML prediction
-        │   ├── ComparePlanets.jsx       Side-by-side planet comparison
-        │   └── About.jsx               Project info
-        └── components/
-            ├── ExoplanetViewer3D.jsx    Exoplanet orbital viewer (r3f)
-            ├── SolarSystemViewer.jsx    Solar system 3D viewer (r3f) + Artemis 2
-            ├── PredictionPanel.jsx      Custom planet prediction studio
-            ├── FiltersPanel.jsx         Left sidebar filters
-            ├── PlanetGrid.jsx           Paginated planet card list
-            ├── Chatbot.jsx              Floating chat widget — ARIA (Groq API)
-            └── Navbar.jsx, Footer.jsx, etc.
+Browser                    Django                     Neon PostgreSQL
+   |                          |                              |
+   |-- GET /api/planets/ ---->|                              |
+   |                          |-- SELECT ... LIMIT 12 ------>|
+   |                          |<-- 12 rows ------------------|
+   |<-- JSON (12 planets) ----|                              |
 ```
+
+The `habitability_class` you see on a planet card was computed **once**, back in
+the Jupyter notebooks, and stored as a column. Browsing does not run any model.
+This is why the Explore page is fast.
+
+### Flow B — Predicting a custom planet (ML runs live)
+
+```
+Browser                Django              HabitabilityScorer        .pkl files
+   |                      |                        |                     |
+   |-- POST /api/predict ->|                       |                     |
+   |                      |-- predict_single() --->|                     |
+   |                      |                        |-- load (once) ----->|
+   |                      |                        |-- build 130 feats   |
+   |                      |                        |-- scale             |
+   |                      |                        |-- predict_proba     |
+   |                      |                        |-- blend w/ physics  |
+   |<-- score + factors --|<---- result dict ------|                     |
+```
+
+**The key insight:** the number shown on a planet's detail page is *recomputed
+live* through Flow B, while the badge on its card in the grid comes from Flow A's
+stored column. They can disagree. That is expected — one is a fresh computation
+by the current scorer, the other is a historical label frozen at data-load time.
 
 ---
 
-## 3. The Science Behind Habitability
+## 3. Running it locally
 
-### What Makes a Planet "Habitable"?
+### Prerequisites
+- Python 3.11+ (the working virtualenv here uses 3.13)
+- Node.js 20+
+- A Neon PostgreSQL connection string, or Postgres locally
+- A Groq API key (optional — without it, only the chatbot is disabled)
 
-Astrobiologists use a concept called the **Habitable Zone (HZ)** — the range of orbital distances from a star where liquid water could exist on a planet's surface. This is sometimes called the "Goldilocks Zone": not too hot, not too cold.
+### Backend
 
-But the HZ alone is not enough. A planet must also be:
+```bash
+python -m venv .venv
+.venv\Scripts\activate            # Windows;  source .venv/bin/activate elsewhere
+pip install -r requirements.txt
 
-1. **Rocky (not a gas giant)** — Gas giants like Jupiter have no solid surface. Life as we know it needs a solid/liquid surface.
-2. **The right size** — Too small: can't hold an atmosphere (like Mars lost its atmosphere). Too large: becomes a gas giant.
-3. **The right temperature** — Liquid water exists between 273 K and 373 K. We use equilibrium temperature as a proxy.
-4. **Orbiting a stable star** — Very young stars flare too much. Very massive stars die too quickly for life to evolve.
-5. **Not too eccentric an orbit** — High eccentricity causes extreme seasonal temperature swings.
+cp backend/.env.example backend/.env    # then fill in real values
+cd backend
+python manage.py migrate
+python load_data_to_db.py               # first run only, loads 8,245 planets
+python manage.py runserver               # http://localhost:8000
+```
+
+> **`DEBUG=true` is required locally.** With `DEBUG=false`, Django turns on
+> `SECURE_SSL_REDIRECT` and the dev server becomes unreachable over plain HTTP.
+> This trips people up constantly.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev                              # http://localhost:3000
+```
+
+Leave `VITE_API_URL` unset locally. `vite.config.js` proxies `/api/*` to port
+8000, so the browser only ever talks to port 3000 and **CORS never enters the
+picture in development**.
+
+### Verifying it works
+
+```bash
+pytest                     # 12 tests, all should pass
+python test_models.py      # prints predictions for 6 sample planets
+curl http://localhost:8000/api/health/
+```
+
+---
+---
+
+# Part 2 — The Science
+
+## 4. What "habitable" means here
+
+### The habitable zone
+
+The band of orbital distances around a star where a planet's temperature would
+allow **liquid water** on the surface. Too close, water boils; too far, it
+freezes. It is often called the Goldilocks zone.
+
+The boundaries depend on the star, because a dim red dwarf's habitable zone sits
+far closer in than a bright Sun-like star's. This project uses these boundaries
+(in AU), from `hz_boundaries` in `habitability_scorer.py`:
+
+| Star type | Inner | Outer | Notes |
+|---|---|---|---|
+| F (yellow-white, hot) | 1.4 | 2.4 | Bright, short-lived |
+| G (Sun-like) | 0.95 | 1.67 | Earth sits at 1.0 |
+| K (orange dwarf) | 0.38 | 1.02 | Often called "superhabitable" |
+| M (red dwarf) | 0.08 | 0.23 | Very close in; tidal locking likely |
+
+These follow the Kopparapu et al. (2013) conservative model.
 
 ### Earth Similarity Index (ESI)
 
-The ESI is a real metric used by NASA and researchers (Schulze-Makuch et al., 2011). It measures how similar a planet is to Earth on a scale of 0 to 1:
-
-```
-ESI_property = 1 - | (x - x_Earth) / (x + x_Earth) | ^ (weight/n)
-```
-
-Where `x` is the planet's value, `x_Earth` is Earth's value, and `weight` is a dimensionless exponent chosen from planetary science literature.
-
-Our system calculates three ESI components:
-- **ESI_radius** — How Earth-like the size is (weight exponent = 0.25)
-- **ESI_temperature** — How close the equilibrium temperature is to Earth's 255 K (weight = 0.5)
-- **ESI_flux** — How close the received stellar radiation is to Earth's 1.0 S⊕ (weight = 0.5)
-
-### Habitable Zone Boundaries
-
-We use the **Kopparapu et al. (2013)** model, the most widely cited modern HZ calculation:
-
-| Star Type | Temp (K) | Conservative HZ (AU) | Optimistic HZ (AU) |
-|-----------|----------|---------------------|-------------------|
-| M-dwarf | 2600–3700 | 0.08–0.24 | 0.06–0.32 |
-| K-dwarf | 3700–5200 | 0.38–1.02 | 0.27–1.32 |
-| G-dwarf (Sun) | 5200–6000 | 0.95–1.67 | 0.75–1.77 |
-| F-dwarf | 6000–7500 | 1.40–2.40 | 1.02–2.90 |
-
-**Conservative HZ**: moist-greenhouse inner edge to maximum-greenhouse outer edge (most confident region).  
-**Optimistic HZ**: extends inward (Venus-like early history possible) and outward (early Mars-like).
-
-The system automatically determines stellar type from `st_teff` and applies the correct boundaries.
-
----
-
-## 4. Dataset & Feature Selection — The Deep Why
-
-### Why These Three NASA Missions?
-
-| Mission | Years Active | Method | Why Included |
-|---------|-------------|--------|-------------|
-| **Kepler** | 2009–2018 | Transit | Gold standard dataset; discovered 2,662 confirmed exoplanets; well-studied, high-quality data |
-| **K2** | 2014–2018 | Transit | Extended Kepler mission after reaction wheel failure; different sky fields; 1,937 planets |
-| **TESS** | 2018–present | Transit | Current mission; covers the whole sky; most modern data; 4,935 candidates |
-
-Each mission has **different column naming conventions** and **different typical stellar populations** (Kepler focused on specific field stars; TESS covers bright, nearby stars). This is why we trained **separate models per mission** rather than one combined model.
-
-### Why These Input Features?
-
-Every input feature was chosen because it can be **measured remotely by telescope** and has **direct physical relevance** to habitability. Here is the full rationale:
-
-#### `pl_rade` — Planet Radius (Earth Radii) — **The Most Important Feature**
-
-**Why we chose it:** Radius determines whether a planet is rocky or a gas/ice giant. The "radius gap" (Fulton gap) at ~1.5–1.8 R⊕ is a real observed phenomenon — planets above this are sub-Neptunes with thick H/He envelopes; planets below are rocky super-Earths. For habitability, we want rocky planets (roughly ≤ 2.0 R⊕).
-
-**How it's measured:** Transit depth (how much starlight dims when planet crosses). Depth ∝ (R_planet / R_star)².
-
-**Range in our dataset:** 0.3 R⊕ (smaller than Mars) to 25 R⊕ (larger than Neptune).
-
-**Why NOT planet mass (`pl_masse`)?** Mass requires radial velocity follow-up (expensive, time-consuming). Only ~30% of planets in our dataset have measured masses. Using mass as a required feature would drop 70% of our data. Radius is available for nearly all transit-detected planets.
-
-#### `pl_eqt` — Equilibrium Temperature (Kelvin) — **Critical Thermal Indicator**
-
-**Why we chose it:** Temperature determines if liquid water is possible. If `pl_eqt` is below ~230 K (too cold) or above ~340 K (too hot), liquid surface water is unlikely without extreme greenhouse effects.
-
-**The Equilibrium Temperature Formula:**
-```
-T_eq = T_star × √(R_star / (2 × a)) × (1 - albedo)^(1/4)
-```
-where `a` is orbital distance. This is what our training data uses.
-
-**IMPORTANT CAVEAT:** `pl_eqt` assumes a **bare rock with no atmosphere**. Earth's actual surface temperature is 288 K but its equilibrium temp is ~255 K — the 33 K difference is the greenhouse effect. Venus has T_eq ≈ 232 K but actual surface = 735 K. This is a **fundamental limitation** detailed in [Section 5](#5-what-we-cannot-predict-and-why).
-
-**Why NOT actual surface temperature?** We cannot measure surface temperature of most exoplanets. Equilibrium temperature is calculable from observable quantities (stellar temp, stellar radius, orbital distance).
-
-#### `pl_insol` — Insolation Flux (Earth units, S⊕) — **The Goldilocks Metric**
-
-**Why we chose it:** Insolation is the total stellar radiation received. Earth = 1.0 S⊕. The HZ conservative boundary is approximately 0.36–1.11 S⊕ for Sun-like stars. This directly determines if liquid water is possible and is closely related to equilibrium temperature.
-
-**How it's measured:** Calculated from stellar luminosity and orbital distance: `S = L_star / (4π × a²)`.
-
-**Why it's different from `pl_eqt`:** Insolation is pure energy received; equilibrium temperature also factors in albedo (reflectivity). Both are proxies for the same physical reality but from different angles.
-
-#### `pl_orbper` — Orbital Period (Days) — **Orbit & Stability Proxy**
-
-**Why we chose it:** Period determines orbital distance via Kepler's Third Law: `a³ = M_star × P²`. Short periods (< 10 days) place planets too close to their star (too hot). Very long periods (> 1,000 days) = too far and cold. For M-dwarf planets, ~10–50 day periods can be in the HZ. For G-stars, ~200–500 days are habitable.
-
-**Also:** Orbital period affects tidal locking probability. Planets with periods < ~25 days around M-dwarfs are likely tidally locked (one side always faces star, one always dark), which is a habitability concern.
-
-#### `pl_orbsmax` — Semi-Major Axis (AU) — **Distance From Star**
-
-**Why we chose it:** Direct measure of orbital distance. Used to calculate HZ boundaries: is the planet inside the HZ inner edge (too hot), in the HZ, or beyond the outer edge (too cold)? The model uses this to derive `in_hz_conservative` and `in_hz_optimistic` flags.
-
-**Derived from period if missing:** `a = (M_star × P_years²)^(1/3)` — this is Kepler's Third Law.
-
-#### `pl_orbeccen` — Orbital Eccentricity — **Orbit Shape / Stability**
-
-**Why we chose it:** Eccentricity measures how elliptical the orbit is (0 = perfect circle, 1 = parabolic). High eccentricity (> 0.3) causes planets to swing wildly closer and farther from their star each orbit, creating extreme temperature cycles. Earth's eccentricity is 0.017 (nearly circular). Mars is 0.093.
-
-**Example of why it matters:** A planet with average distance of 1.0 AU but eccentricity of 0.5 would range from 0.5 AU (boiling) to 1.5 AU (freezing) each year — likely uninhabitable despite the average being in the HZ.
-
-#### `st_teff` — Stellar Effective Temperature (K) — **Star Type Classifier**
-
-**Why we chose it:** The stellar type fundamentally changes the HZ boundaries, UV flux levels, flare activity, and how long the star will live (affecting if life has time to evolve). We use `st_teff` to automatically classify star type:
-- < 3700 K → M-dwarf (red dwarf) — smallest, most common, but prone to flares
-- 3700–5200 K → K-dwarf — "superhabitable" candidates, long-lived
-- 5200–6000 K → G-dwarf (Sun-like) — our reference
-- > 6000 K → F/A/B/O stars — too short-lived for complex life to develop
-
-**Why NOT stellar spectral class directly?** The spectral class letter (G, K, M) is a categorical variable that would need one-hot encoding and has inconsistent labeling across mission datasets. Temperature is continuous, precisely measured, and universally consistent.
-
-#### `st_rad` — Stellar Radius (Solar Radii) — **Luminosity & Detection Proxy**
-
-**Why we chose it:** Stellar radius is needed to calculate planet radius from transit depth: `R_planet = R_star × √(transit_depth)`. It's also needed for HZ calculation (stellar luminosity ∝ R²×T⁴). Without this, planet radius estimates are uncertain.
-
-#### `st_mass` — Stellar Mass (Solar Masses) — **Orbital Dynamics & Stellar Lifetime**
-
-**Why we chose it:** Stellar mass determines:
-1. Orbital period-to-distance conversion (Kepler's 3rd Law needs stellar mass)
-2. Stellar lifetime: `t_life ∝ 1/M^2.5`. A 2-solar-mass star lives ~1 Gyr; our Sun lives ~10 Gyr; a 0.5 M☉ star lives ~60 Gyr. Life needs billions of years to evolve.
-3. Habitable zone location moves inward for lower-mass stars
-
-### Engineered Features (Calculated, Not Measured)
-
-These are derived from the raw features above and were created to help the ML models:
-
-| Feature | Formula | Physical Meaning |
-|---------|---------|-----------------|
-| `radius_similarity` | `1 - |pl_rade - 1| / 10` (clipped 0–1) | How close to Earth's radius |
-| `temp_similarity` | `1 - |pl_eqt - 255| / 500` | How close to Earth's equilibrium temp |
-| `insol_similarity` | `1 - |pl_insol - 1| / 10` | How close to Earth's stellar flux |
-| `in_hz_conservative` | Binary: 0.25 ≤ pl_insol ≤ 4.0 | Inside conservative HZ |
-| `in_hz_optimistic` | Binary: 0.1 ≤ pl_insol ≤ 10.0 | Inside optimistic HZ |
-| `is_rocky` | Binary: pl_rade ≤ 2.0 | Below the radius gap |
-| `is_earth_sized` | Binary: 0.8 ≤ pl_rade ≤ 1.25 | True Earth-size range |
-| `is_super_earth` | Binary: 1.0 < pl_rade ≤ 2.0 | Super-Earth range |
-| `planet_star_radius_ratio` | `pl_rade / (st_rad × 109.2)` | Transit depth proxy |
-| `orbit_stellar_radii` | `pl_orbsmax × 215 / st_rad` | Orbital distance in stellar units |
-| `pl_orbper_log` | `log10(pl_orbper)` | Log-transformed period |
-| `pl_orbsmax_log` | `log10(pl_orbsmax)` | Log-transformed distance |
-| `pl_insol_log` | `log10(pl_insol)` | Log-transformed flux |
-
-**Why log transformations?** Orbital periods and distances span many orders of magnitude (1 day to 10,000 days). Log transformation converts this multiplicative scale to additive, which helps tree-based models find thresholds.
-
-**Why binary flags if models can handle continuous values?** The binary flags encode domain knowledge directly. `in_hz_conservative=1` is a strong, well-understood habitability signal that would take many splits in a decision tree to approximate from continuous features alone. Including them directly gives the model the benefit of decades of astrophysics research.
-
----
-
-## 5. What We Cannot Predict and Why
-
-This section is critical for intellectual honesty. Our system makes **physical plausibility predictions**, not actual life detection.
-
-### We CANNOT Predict: Atmospheric Oxygen (O₂) or Any Atmospheric Gas
-
-**Why not?** 
-
-Detecting atmospheric composition requires **spectroscopy of the atmosphere during transit** — measuring which wavelengths of starlight are absorbed as it filters through the planet's atmosphere. This requires:
-1. The planet to be transiting at precisely the right angle
-2. An extremely bright host star (making the signal detectable)
-3. Instruments like JWST (James Webb Space Telescope)
-4. Multiple transits for enough signal
-5. The planet to have an atmosphere to begin with
-
-**Data availability:** Fewer than 50 exoplanets have any atmospheric characterization. Our dataset has 9,614 planets with **zero atmospheric composition data** because most were detected by Kepler/K2/TESS which detect transits (dips in brightness), not spectra.
-
-**Why oxygen specifically?** O₂ is considered the strongest biosignature — on Earth, it's maintained only by photosynthetic life (otherwise it would react away). But detecting O₂ requires:
-- Transmission spectroscopy at the 760nm O₂ A-band
-- JWST or future large telescopes
-- A nearby, bright host star
-- A rocky planet with thin enough atmosphere
-
-**Our dataset has none of this.** Adding an "oxygen prediction" would be pseudoscience — we'd be predicting something we have no data about.
-
-### We CANNOT Predict: Whether Life Actually Exists
-
-**Why not?** Life detection requires:
-- Biosignature gases (O₂, methane, ozone, nitrous oxide in combination)
-- Surface features (chlorophyll-like reflection)
-- Radio signals (SETI)
-- Direct sample (spacecraft)
-
-None of these are in transit photometry datasets. Even if we added biosignature gas data, the logical jump from "these gases exist" to "life exists" is not a machine learning problem — it's an open scientific question. (Methane + O₂ = likely biogenic, but abiotic sources exist too.)
-
-### We CANNOT Predict: Geological Activity / Plate Tectonics
-
-**Why not?** Geological activity (volcanism, plate tectonics) is thought to be important for carbon-silicate cycle regulation (long-term climate stability). But:
-- Not measurable from transit photometry
-- Requires seismology or detailed surface mapping
-- No data in any exoplanet catalog for 9,614 planets
-
-### We CANNOT Predict: Magnetic Field Strength
-
-**Why not?** A magnetic field protects a planet from stellar wind stripping the atmosphere (like Mars lost its). But magnetic fields are only measurable from surface visits or specific radio observations. Not in transit data.
-
-### We CANNOT Predict: Presence of Water (Confirmed)
-
-**Why not?** We can *estimate* if liquid water is *possible* from temperature and flux, but water vapor detection requires spectroscopy. We can say "the temperature range allows liquid water" but not "water exists there."
-
-### What We CAN Predict: Physical Plausibility Score
-
-We predict **whether the observable physical properties are consistent with habitability** — the same kind of analysis NASA's Habitable Exoplanet Catalog does. This is scientifically valid and useful for prioritizing which planets deserve expensive follow-up observation.
-
----
-
-## 6. Machine Learning Models — Design Decisions
-
-### Why Train Separate Models Per Mission?
-
-**Problem:** Each NASA mission produces data with different feature names, different precision, different stellar populations, and different biases.
-
-- **Kepler** focused on one patch of sky for 4 years, specifically targeting G and K dwarfs at 300–3,000 light-years. Its features are named `koi_*` (Kepler Object of Interest).
-- **K2** surveyed 19 different fields of the ecliptic plane. Wider stellar variety. Features named `pl_*`.
-- **TESS** targets the brightest, nearest stars (100–300 light-years). Much brighter host stars. Features named `pl_*` but with different completeness patterns.
-
-Training a single model on all three would force it to handle different feature naming and statistical distributions simultaneously. Separate models allow each to specialize in its mission's data characteristics.
-
-**Auto-detection logic:** If the user doesn't specify a mission, the system auto-detects from feature names (presence of `koi_*` keys → Kepler; otherwise defaults to Kepler as it has the highest accuracy).
-
-### Why XGBoost for K2 and Kepler?
-
-**XGBoost** (Extreme Gradient Boosting) is a gradient boosted decision tree ensemble. It won on K2 and Kepler because:
-
-1. **Handles missing values natively** — Both missions have missing data (missing `pl_orbsmax`, `pl_orbeccen`). XGBoost learns the optimal direction for missing values at each split.
-2. **Feature importance** — Built-in SHAP values for explainability.
-3. **Regularization** — L1/L2 regularization prevents overfitting on the highly imbalanced dataset (99.7% NON_HABITABLE).
-4. **Speed** — Much faster than Random Forest on these dataset sizes.
-5. **Performance:** K2 = 99.2%, Kepler = 100%.
-
-**Hyperparameters used:**
-```
-max_depth = 5          # Prevents overly complex trees
-learning_rate = 0.1    # Conservative step size
-n_estimators = 100     # Number of trees
-subsample = 0.8        # Prevents overfitting
-colsample_bytree = 0.8 # Feature sampling per tree
-```
-
-### Why Random Forest for TESS?
-
-**Random Forest** won on TESS because:
-
-1. **TESS data characteristics:** TESS planets tend to have higher measurement precision (brighter host stars) and fewer missing values, making Random Forest's requirement for complete features less of an issue.
-2. **Stability:** With 100% accuracy on both XGBoost and RF for TESS, RF was chosen for its better calibrated probabilities (out-of-bag estimation gives more reliable confidence scores).
-3. **Different feature correlations:** TESS feature set includes `tmag_bright` (TESS magnitude flag) which interacts differently with the ensemble.
-
-**Hyperparameters:**
-```
-n_estimators = 100
-max_depth = 10
-min_samples_split = 2
-class_weight = 'balanced'   # Critical for imbalanced classes
-```
-
-### Why Such High Accuracy? Is It Real?
-
-The 99.2%–100% accuracy is **real but requires context**:
-
-1. **Extreme class imbalance:** 99.71% of planets are NON_HABITABLE. A model that predicts "always non-habitable" gets 99.71% accuracy. This is the "accuracy paradox."
-
-2. **We address this with:** Precision, Recall, and F1-score per class, confusion matrices, and stratified splits. The models maintain high precision/recall on the POTENTIALLY_HABITABLE minority class too.
-
-3. **Why the high accuracy is genuine:**
-   - The physical properties of habitable planets (right radius, right temperature, right flux) cluster very distinctly in feature space.
-   - The ESI similarity features and HZ flags we engineered encode the exact boundary that defines habitability — so the model is learning patterns that are **physically defined** and therefore separable.
-
-4. **Legitimate concern:** The training set has only 47 potentially habitable planets (out of 9,614). With so few positive examples, the model may be overly conservative in real deployment. We mitigate this with the continuous composite score (see Section 7).
-
-### Feature Importance Rankings (From SHAP Analysis)
-
-**K2 & TESS Models (XGBoost/RF):**
-
-| Rank | Feature | Importance | Physical Reason |
-|------|---------|-----------|-----------------|
-| 1 | `pl_insol` (Insolation Flux) | ~22% | Most direct HZ indicator |
-| 2 | `in_hz_conservative` | ~18% | Engineered binary flag |
-| 3 | `pl_eqt` (Equilibrium Temp) | ~16% | Temperature boundary |
-| 4 | `temp_similarity` | ~12% | Earth-like temperature |
-| 5 | `pl_rade` (Planet Radius) | ~10% | Rocky/gas discriminator |
-| 6 | `insol_similarity` | ~8% | Earth-like flux |
-| 7 | `is_rocky` | ~5% | Radius gap flag |
-| 8 | `st_teff` (Star Temp) | ~4% | Star type |
-| 9 | `radius_similarity` | ~3% | ESI radius component |
-| 10 | `pl_orbsmax` (Orbital dist) | ~2% | Distance crosscheck |
-
-**Why insolation flux is #1:** It's the most direct, physically meaningful boundary. A planet receiving 0.2 S⊕ is certainly too cold; one receiving 10 S⊕ is certainly too hot. This single feature already does most of the classification work.
-
-**Why planet radius is #5, not #1:** The ML model sees that many planets with the wrong temperature/flux also have bad radii, so the temperature/flux features carry more unique information. Radius is still crucial for the composite score.
-
-### The Prediction Pipeline (Technical Flow)
-
-```
-Input: { pl_rade: 1.2, pl_eqt: 288, pl_insol: 1.0, ... }
-    ↓
-1. Detect mission (auto from feature names or user-specified)
-    ↓
-2. Compute derived features (ESI components, HZ flags, log transforms)
-    ↓
-3. Build feature vector in exactly the order the model was trained on
-   (Feature names stored in metadata .pkl file)
-    ↓
-4. Normalize with MinMaxScaler (stored in artifacts/*.pkl)
-   Each feature scaled to [0, 1] using training set min/max
-    ↓
-5. Feed to ML model → get class probabilities
-   e.g., [NON_HABITABLE: 0.05, HZ: 0.03, POTENTIALLY_HABITABLE: 0.92]
-    ↓
-6. Calculate composite score (40% ML + 30% ESI + 20% HZ prox + 10% stellar)
-    ↓
-7. Classify by threshold: ≥0.65 → POTENTIALLY_HABITABLE, etc.
-    ↓
-8. Run SHAP → ranked feature attributions (how each feature contributed)
-    ↓
-9. Return full result dict
-```
-
----
-
-## 7. Habitability Scoring System
-
-### Why a Composite Score Instead of Just the ML Output?
-
-The ML model output (class probabilities) alone has limitations:
-- It's a black box — hard to explain physically
-- Calibration: 0.92 probability doesn't mean 92% physically certain
-- It was trained on historical data; novel planet types may be outside training distribution
-
-The composite score combines **ML prediction + physics-based metrics** for robustness:
-
-```
-habitability_score = 0.10 × ML_score + 0.90 × physics_score
-```
-
-The physics term dominates deliberately. The ML models were trained on a
-distribution where under 1% of planets are potentially habitable, so left to
-itself the classifier pushes almost everything toward NON_HABITABLE. Anchoring
-90% of the score to physics is what makes Earth-like inputs land above 90% and
-Venus-like inputs below 20%, regardless of that training bias.
-
-> The authoritative implementation is `calculate_habitability_score()` in
-> `backend/api/habitability_scorer.py`. If you change the weights there, update
-> this section too.
-
-### Component 1: ML score (10% weight)
-
-A single scalar collapsed from the model's three class probabilities:
+A published 0–1 index of how Earth-like a planet is. This project computes three
+components and combines them as a **geometric mean**:
 
 ```python
-ml_score = P(POTENTIALLY_HABITABLE) * 1.0 \
-         + P(HABITABILITY_ZONE)     * 0.5 \
-         + P(NON_HABITABLE)         * 0.0
-```
-
-If the model fails to load or predict, it falls back to
-`prob_pot_hab=0.05, prob_hz=0.15, prob_non_hab=0.80` and the physics term
-carries the result.
-
-### Component 2: Physics score (90% weight)
-
-```python
-physics_score = (temp_sim * radius_sim * insol_sim) ** (1/3)   # geometric mean
-                * (0.4 + 0.6 * in_hz)          # insolation inside conservative HZ
-                * (0.7 + 0.3 * hz_proximity)   # orbital distance via Kepler's 3rd law
-                * stellar_factor               # host star type
-```
-
-The three similarity terms are linear distance penalties, each clamped to [0, 1]:
-
-```python
-temp_sim   = 1 - abs(pl_eqt   - 255.0) / 500.0   # 255 K = Earth equilibrium temp
-radius_sim = 1 - abs(pl_rade  - 1.0)   / 10.0    # 1.0 Earth radii
-insol_sim  = 1 - abs(pl_insol - 1.0)   / 10.0    # 1.0 Earth flux
-```
-
-A geometric mean is used rather than an arithmetic one so that a single
-disqualifying parameter (say a 3,000 K equilibrium temperature) drags the whole
-score down instead of being averaged away by two good parameters.
-
-`in_hz` is derived from insolation against the conservative habitable zone
-(0.25–1.67 S⊕), with a linear falloff on the cold side and a steeper one on the
-hot side. `hz_proximity` comes from orbital distance, which is derived from
-`pl_orbper` via Kepler's third law — this is what makes orbital period affect
-the score at all.
-
-### Earth Similarity Index (reported, but not a scoring term)
-
-ESI is computed and returned in the API response, but it is **not** one of the
-weighted inputs to `habitability_score`. It uses the Schulze-Makuch et al.
-(2011) exponent form, combined as a geometric mean:
-
-```python
-ESI_radius = 1 - abs((pl_rade  / 1.0)   ** 0.57 - 1)   # exponent 0.57 for radius
-ESI_temp   = 1 - abs((pl_eqt   / 288.0) ** 0.25 - 1)   # 288 K = Earth surface temp
-ESI_flux   = 1 - abs((pl_insol / 1.0)   ** 0.25 - 1)
+ESI_radius = 1 - abs((pl_rade  / 1.0  ) ** 0.57 - 1)
+ESI_temp   = 1 - abs((pl_eqt   / 288.0) ** 0.25 - 1)
+ESI_flux   = 1 - abs((pl_insol / 1.0  ) ** 0.25 - 1)
 
 ESI = (ESI_radius * ESI_temp * ESI_flux) ** (1/3)
 ```
 
-Note the two different temperature references in play: ESI compares against
-Earth's **surface** temperature (288 K), while `temp_sim` in the physics score
-compares against Earth's **equilibrium** temperature (255 K). That is
-intentional — ESI is a published index with a fixed definition, while `temp_sim`
-measures similarity in the same quantity the dataset actually reports.
+The 0.57 exponent for radius is from Schulze-Makuch et al. (2011).
 
-### Stellar Type Factor (a multiplier on the physics score)
+> **Watch this trap.** ESI compares temperature against Earth's **surface**
+> temperature (288 K). The physics score in [Section 7](#7-the-scoring-engine--the-heart-of-the-project)
+> compares against Earth's **equilibrium** temperature (255 K). Two different
+> reference numbers, deliberately. ESI is a published index with a fixed
+> definition; the physics term measures similarity in the same quantity the
+> dataset actually reports. If an examiner spots "255 in one place, 288 in
+> another", this is the answer.
+>
+> **ESI is reported in the API response but is *not* an input to the
+> habitability score.** Older versions of this document claimed it was weighted
+> at 30%. That was never true in the code.
 
-| Star Type | Factor | Rationale |
-|-----------|--------|-----------|
-| G (Sun-like) | 1.0 | Reference star — stable, long lifetime (~10 Gyr), moderate UV |
-| K (orange dwarf) | 0.9 | Arguably "superhabitable" — longer lifetime (~30 Gyr), less UV than G |
-| F (yellow-white) | 0.8 | Higher UV flux, shorter stellar lifetime (~3 Gyr) |
-| M (red dwarf) | 0.7 | Prone to X-ray/UV flares, tidal locking likely for HZ planets |
-| A/B/O types | 0.4 | Too short-lived (<2 Gyr) and intense UV for life as we know it |
+### Equilibrium temperature — the concept that explains everything
 
-**Note on M-dwarfs:** The factor 0.7 doesn't mean M-dwarf planets can't be habitable — Proxima Centauri b (an M-dwarf planet) is one of the most studied candidates. The factor reflects *statistical risk*, not impossibility.
+`pl_eqt` is the temperature a planet would have **if it had no atmosphere**. It
+is computed from the star's output and the orbital distance.
 
-### Classification Thresholds
+Earth's equilibrium temperature is 255 K (−18 °C). Earth's actual surface is
+288 K (15 °C). The 33 K difference is our greenhouse effect.
 
-| Score | Class | Meaning |
-|-------|-------|---------|
-| 0.66–1.0 | POTENTIALLY_HABITABLE | Strong candidate — prioritize for follow-up |
-| 0.30–0.65 | HABITABILITY_ZONE | In or near the HZ but physically uncertain |
-| 0.0–0.29 | NON_HABITABLE | Physical properties inconsistent with habitability |
+Venus is the cautionary tale: equilibrium temperature about 232 K, actual surface
+737 K. A runaway greenhouse effect accounts for the entire 505 K gap — and
+**transit photometry cannot see it**.
 
-These thresholds were chosen to match the observed distribution in the training data and align with published habitability catalogs (PHL's HEC).
-
----
-
-## 8. System Limitations & Honest Assessment
-
-### Known Technical Limitations
-
-**1. Training Class Imbalance**
-Only 47 out of 9,614 processed rows (0.49%) are POTENTIALLY_HABITABLE — 43 after de-duplication into the database. This is the real-world distribution — habitable planets are rare. The models handle this with `class_weight='balanced'` and careful evaluation, but predictions for borderline cases may be unreliable.
-
-**2. Missing Mass Data**
-`pl_masse` (planet mass) is not used as a feature because only ~30% of planets have it measured. Mass would strengthen predictions (density → composition → rocky vs gas). This is a dataset limitation, not a model choice failure.
-
-**3. Equilibrium Temperature ≠ Surface Temperature**
-`pl_eqt` assumes no atmosphere. The real surface temperature depends on the greenhouse effect, which we don't know for any exoplanet in our dataset. A planet with `pl_eqt = 200 K` (seemingly too cold) could have a surface temperature of 250 K with a moderate greenhouse effect.
-
-**4. Single-Epoch Data**
-Our training data is a snapshot. Planets' measured parameters have uncertainties and measurement errors. The ML models were not trained on error bars, only central values.
-
-**5. No Atmospheric Data**
-As explained in Section 5 — we cannot account for atmospheric composition, pressure, or weather patterns.
-
-**6. TESS False Positives**
-TESS candidates ("TOI" = TESS Object of Interest) are not all confirmed planets. Some may be false positives (eclipsing binaries mimicking planet transits). Our TESS model was trained on TOI candidates with habitability-relevant properties, so some training samples may not be real planets.
-
-**7. Limited POTENTIALLY_HABITABLE Training Samples**
-Only 47 rows across all 3 missions qualify as potentially habitable (43 unique planets in the database). The models are excellent at identifying non-habitable planets but the positive class generalization is limited by sample size.
-
-### How We Mitigate These Limitations
-
-1. **Composite scoring** blends ML with physics, reducing model-specific bias
-2. **Three separate mission models** prevent one mission's biases from dominating
-3. **SHAP explainability** lets users understand why a prediction was made
-4. **Conservative classification thresholds** — we require score ≥ 0.66 for POTENTIALLY_HABITABLE
-5. **Transparent uncertainty** — the UI shows confidence and contributing factors
-6. **Fallback explainability** — if SHAP/LIME fail, a physics-based fallback still explains the result
+This one fact is the root of the system's central limitation, demonstrated
+concretely in [Section 13](#13-what-this-system-cannot-do).
 
 ---
 
-## 9. Backend API Architecture
+## 5. The data: where it comes from and what happens to it
 
-### Endpoints Summary
+### The three missions
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/planets/` | List planets with filters/pagination |
-| GET | `/api/planets/{id}/` | Planet detail |
-| GET | `/api/planets/stats/` | Dataset statistics |
-| GET | `/api/planets/habitable/` | Only habitable planets |
-| GET | `/api/planets/search/` | Name search, max 50 results |
-| GET | `/api/planets/compare/` | Compare up to 10 planets via `?ids=1,2,3` |
-| GET | `/api/missions/` | List K2, Kepler, TESS |
-| POST | `/api/predict/` | Single planet habitability prediction |
-| POST | `/api/predict/batch/` | Batch prediction (CSV upload) |
-| POST | `/api/explain/` | Prediction + SHAP/LIME explanation |
-| GET | `/api/models/info/` | Loaded model metadata |
-| GET | `/api/health/` | Service health check |
-| GET/POST | `/api/chatbot/` | ARIA chatbot via Groq API (status check / send message) |
-| POST | `/api/auth/register/` | Create account, returns JWT |
-| POST | `/api/auth/login/` | Login by username or email, returns JWT |
-| GET | `/api/auth/me/` | Current user profile (auth required) |
-| POST | `/api/auth/logout/` | Logout signal — see the blacklist caveat below |
-| GET/POST | `/api/auth/saved/` | List / save habitability predictions (auth required) |
-| DELETE | `/api/auth/saved/{id}/` | Delete a saved prediction (auth required) |
+| Mission | Years | Why included | Rows |
+|---|---|---|---|
+| **Kepler** | 2009–2013 | Stared at one patch of sky for 4 years; deepest, most reliable data | 2,742 |
+| **K2** | 2014–2018 | Kepler after two reaction wheels failed; different sky fields | 1,937 |
+| **TESS** | 2018– | All-sky survey of nearby bright stars | 4,935 |
 
-### Query Parameters for `/api/planets/`
+Three missions give sky coverage, different star populations, and cross-checking.
+
+### The pipeline
 
 ```
-?page=1&page_size=30        Pagination
-?mission=kepler             Filter by mission (k2, kepler, tess)
-?habitability=POTENTIALLY_HABITABLE   Filter by class
-?min_radius=0.8&max_radius=2.0       Radius range filter
-?min_temp=200&max_temp=400            Temperature range filter
-?q=kepler-442                         Search by planet name
+data/raw/*.csv                      NASA Exoplanet Archive downloads
+      |
+      |  notebooks/01, 02, 03       clean, engineer features, label,
+      v                             split 60/20/20 stratified
+data/processed/<mission>/*.csv      9,614 rows total
+      |
+      +--> notebooks/04a, 04b, 04c  train models -> models/*.pkl
+      |                                          -> artifacts/<mission>/*.pkl
+      |
+      +--> backend/load_data_to_db.py  ---->  Neon PostgreSQL (8,245 rows)
 ```
 
-### Database — Neon DB (PostgreSQL)
+### The 9,614 vs 8,245 discrepancy — know this cold
 
-All application data lives in a single **Neon DB** PostgreSQL instance hosted on AWS us-east-1. Credentials are loaded from `backend/.env` (`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`). The settings.py falls back to a local SQLite file only when `DB_PASSWORD` is not set (i.e., never in real use).
+You will see both numbers. They are both correct, for different things:
 
-**Tables in Neon DB:**
+- **9,614** = rows in the processed CSVs (1,937 + 2,742 + 4,935)
+- **8,245** = unique planets in the database
 
-| Table | App | Contents |
-|-------|-----|----------|
-| `planets_mission` | planets | K2, Kepler, TESS mission metadata |
-| `planets_exoplanet` | planets | 8,245 exoplanet rows with all parameters |
-| `auth_user` | Django built-in | User accounts (username, email, password hash) |
-| `users_userprofile` | users | OneToOne extension — base64 profile avatar |
-| `users_savedprediction` | users | Per-user saved habitability predictions (JSON inputs + outputs) |
+The gap is entirely K2. Its 1,937 rows describe only **568 distinct planets** —
+the NASA archive stores one row per literature reference, so a well-studied
+planet appears many times. `load_data_to_db.py` de-duplicates on `planet_name`,
+so 1,369 duplicate K2 rows are skipped.
 
-**ML model pickle files** (`models/` and `artifacts/`) are stored on the **filesystem**, not in the database. They are loaded into memory once by the `HabitabilityScorer` singleton on first API request.
+```
+K2      1,937 rows  ->    568 unique
+Kepler  2,742 rows  ->  2,742 unique
+TESS    4,935 rows  ->  4,935 unique
+                        -----------
+                          8,245 in the database
+```
 
-**Planet model key fields:**
+**Use 9,614 when talking about training data. Use 8,245 when talking about the
+website.** The models were trained on the CSV rows, duplicates included.
+
+### Class distribution — and why it dominates everything
+
+| Mission | NON_HABITABLE | HABITABILITY_ZONE | POTENTIALLY_HABITABLE |
+|---|---|---|---|
+| K2 | 1,876 | 56 | **5** |
+| Kepler | 2,574 | 136 | **32** |
+| TESS | 4,776 | 149 | **10** |
+| **Total** | 9,226 | 341 | **47** |
+
+47 out of 9,614 rows — **0.49%**. In the database, 43 unique planets.
+
+This extreme imbalance is the single most important fact about the machine
+learning in this project. It explains the suspiciously high accuracy
+([Section 6](#6-the-three-models-and-why-there-are-three)) and it explains why
+physics carries 90% of the final score
+([Section 7](#7-the-scoring-engine--the-heart-of-the-project)).
+
+### The input features
+
+Nine measurable quantities drive everything:
+
+| Feature | Meaning | Earth | Why it matters |
+|---|---|---|---|
+| `pl_rade` | Planet radius (Earth radii) | 1.0 | Above ~2 R⊕ a planet is likely gas, not rock |
+| `pl_eqt` | Equilibrium temperature (K) | 255 | Proxy for liquid-water range |
+| `pl_insol` | Starlight received (Earth flux) | 1.0 | Direct habitable-zone test |
+| `pl_orbper` | Orbital period (days) | 365 | Yields orbital distance via Kepler's 3rd law |
+| `pl_orbsmax` | Semi-major axis (AU) | 1.0 | Distance from star; derived if missing |
+| `pl_orbeccen` | Eccentricity | 0.017 | High values mean extreme seasons |
+| `st_teff` | Star temperature (K) | 5778 | Determines star type and HZ location |
+| `st_rad` | Star radius (solar radii) | 1.0 | Affects luminosity |
+| `st_mass` | Star mass (solar masses) | 1.0 | Needed for Kepler's 3rd law |
+
+**Planet mass (`pl_masse`) is stored but not used as a model feature** — only
+about 30% of planets have a measured mass. Mass would give density, and density
+would distinguish rock from gas, which would genuinely improve predictions. This
+is a data limitation, not a design choice.
+
+### Engineered features
+
+The models expect far more columns than the nine above (Kepler 130, K2 270,
+TESS 44). The rest are derived in `_compute_derived_features()`:
+
+| Kind | Examples | Purpose |
+|---|---|---|
+| Similarity | `radius_similarity`, `temp_similarity`, `insol_similarity` | Pre-computed Earth closeness |
+| HZ flags | `in_hz_conservative` (0.25–4.0 S⊕), `in_hz_optimistic` (0.1–10 S⊕) | Binary zone membership |
+| Size flags | `is_rocky` (≤2 R⊕), `is_earth_sized` (0.8–1.25), `is_super_earth` | Category shortcuts |
+| Log transforms | `pl_orbper_log`, `pl_insol_log` | Compress huge ranges |
+| Ratios | `planet_star_radius_ratio`, `orbit_stellar_radii` | Scale-free relationships |
+
+> **This must match the training notebooks exactly.** If a formula here drifts
+> from what `notebooks/04*.ipynb` used, the model receives subtly wrong inputs
+> and degrades *silently* — no error, just worse answers. Any feature the model
+> expects but that cannot be computed is filled with `0.0`.
+
+---
+---
+
+# Part 3 — The Machine Learning
+
+## 6. The three models and why there are three
+
+### Why not one model?
+
+Because the three missions do not produce the same columns:
+
+| Mission | Features | Column style |
+|---|---|---|
+| K2 | 270 | `pl_rade`, `pl_eqt`, … |
+| Kepler | 130 | `koi_prad`, `koi_teq`, … |
+| TESS | 44 | `pl_rade` + TESS-specific (`st_tmag`) |
+
+A single model would have to use only the columns all three share — throwing away
+most of what Kepler and K2 measured. Training per mission keeps each mission's
+full feature set and stops one mission's observational bias from dominating.
+
+The cost is real: three models, three scalers, three metadata files to keep in
+sync, and a mission-detection step at prediction time.
+
+### Which algorithm, and why
+
+**XGBoost for K2 and Kepler.** Gradient boosting builds trees sequentially, each
+correcting the previous one's errors. It handles the mixed-scale, partly-missing,
+non-linear feature space well and supports `scale_pos_weight` for imbalance.
+
+**Random Forest for TESS.** With only 44 features and the most rows, the
+independent-trees-then-vote approach was less prone to overfitting here, and it
+simply scored better in `notebooks/05_model_comparison.ipynb`.
+
+All six models were trained; the best per mission was promoted. The runners-up
+are kept in `models/` for comparison.
+
+### The accuracy question — handle this carefully
+
+`models/best_models_summary.csv` reports:
+
+| Mission | Model | Accuracy | Weighted F1 |
+|---|---|---|---|
+| Kepler | XGBoost | 100% | 1.000 |
+| TESS | Random Forest | 100% | 1.000 |
+| K2 | XGBoost | 99.2% | 0.991 |
+
+**Do not present these numbers without the caveat.** They are weighted across all
+three classes, on data where 95%+ of rows are NON_HABITABLE. A model that
+answered "not habitable" every single time would already score about 97% on K2.
+
+`models/model_evaluation_report.csv` shows the per-class picture:
+
+| Mission | Class | Precision | Recall | F1 | Support |
+|---|---|---|---|---|---|
+| K2 | POTENTIALLY_HABITABLE | 0.00 | 0.00 | **0.00** | 1 |
+| K2 | NON_HABITABLE | 0.09 | 1.00 | 0.17 | 11 |
+| TESS | POTENTIALLY_HABITABLE | 0.50 | 0.50 | **0.50** | 2 |
+| TESS | NON_HABITABLE | 0.63 | 0.40 | 0.49 | 30 |
+
+With 1–2 positive samples in a test split, these numbers are **statistically
+meaningless in both directions**. They are not proof the models fail on habitable
+planets; they are proof we cannot tell. That honest position is much stronger
+than either "100% accurate" or "it's broken".
+
+> Note: the two CSVs disagree on K2's overall figures (99.2% accuracy vs 0.72
+> recall). They come from different evaluation runs and were never reconciled.
+> Prefer `model_evaluation_report.csv` — it at least breaks results out per class.
+
+**This is precisely why the production score weights physics at 90%.** The
+architecture already accounts for the weakness the metrics reveal.
+
+---
+
+## 7. The scoring engine — the heart of the project
+
+Everything lives in `calculate_habitability_score()` inside
+`backend/api/habitability_scorer.py`. If you understand this function you
+understand the project.
+
+### The formula
+
+```
+habitability_score = 0.10 × ml_score + 0.90 × physics_score
+```
+
+That is the whole thing. Ten percent machine learning, ninety percent physics.
+
+> **If you have read older documentation claiming `0.40 ML + 0.30 ESI +
+> 0.20 HZ + 0.10 stellar`, that formula was never in the code.** It has been
+> corrected here, in the README, and in the chatbot's system prompt. If you find
+> it anywhere else, it is wrong.
+
+### Why physics dominates
+
+The models were trained on data where under 1% of planets are habitable. Left to
+itself, a classifier trained on that distribution pushes nearly everything toward
+NON_HABITABLE — the safest bet for accuracy is always "no". Anchoring 90% of the
+score to physics keeps the output meaningful for the Earth-like inputs users
+actually care about.
+
+The honest framing: **the ML models are the weakest link, so they were given the
+smallest vote.** Say that in a viva and you demonstrate real understanding.
+
+### Component 1 — the ML score (10%)
+
+Three class probabilities collapsed into one number:
+
 ```python
-planet_name, mission (FK), pl_rade, pl_masse, pl_eqt, pl_insol,
-pl_orbper, pl_orbsmax, pl_orbeccen, st_teff, st_rad, st_mass,
-habitability_class, in_habitable_zone, potentially_habitable,
-esi_overall, discovery_year, disc_facility
+ml_score = P(POTENTIALLY_HABITABLE) * 1.0
+         + P(HABITABILITY_ZONE)     * 0.5
+         + P(NON_HABITABLE)         * 0.0
 ```
 
-**SavedPrediction model key fields:**
+> **A subtle, critical detail.** scikit-learn and XGBoost order classes
+> **alphabetically**, so `predict_proba` returns
+> `[HABITABILITY_ZONE, NON_HABITABLE, POTENTIALLY_HABITABLE]`. Index 1 is
+> NON_HABITABLE, not index 2. Get this wrong and every score silently inverts.
+> The code comments this explicitly.
+
+If the model fails to load or predict, it falls back to
+`(prob_hz=0.15, prob_non_hab=0.80, prob_pot_hab=0.05)` and physics carries the
+result. **The API still returns 200 with a plausible-looking score** — it does
+not tell the user the model was skipped. Worth knowing.
+
+### Component 2 — the physics score (90%)
+
 ```python
-user (FK → auth_user), name (CharField 120), inputs (JSONField),
-outputs (JSONField — score, classification, probabilities, ESI, SHAP),
-created_at (auto DateTimeField, indexed)
+physics_score = (temp_sim * radius_sim * insol_sim) ** (1/3)   # geometric mean
+                * (0.4 + 0.6 * in_hz)          # habitable-zone membership
+                * (0.7 + 0.3 * hz_proximity)   # orbital distance closeness
+                * stellar_factor               # host star quality
 ```
 
-**Auth — JWT via djangorestframework-simplejwt:**
-- Access token lifetime: **1 hour**
-- Refresh token lifetime: **7 days**
-- Login accepts either username **or** email
-- Token rotation disabled (refresh token stays valid until expiry)
-- `/api/auth/logout/` cannot truly revoke a token: `token_blacklist` is not in
-  `INSTALLED_APPS`, so the call always returns 200 and the client simply drops
-  its own tokens. Add `rest_framework_simplejwt.token_blacklist` and migrate if
-  server-side revocation is required.
+Each of the four terms, in turn:
+
+**a. The similarity core** — three linear distance penalties, each clamped to [0, 1]:
+
+```python
+temp_sim   = 1 - abs(pl_eqt   - 255.0) / 500.0
+radius_sim = 1 - abs(pl_rade  - 1.0)   / 10.0
+insol_sim  = 1 - abs(pl_insol - 1.0)   / 10.0
+```
+
+They are combined as a **geometric mean, not an average**. That choice matters: a
+planet at 3,000 K with a perfect radius and perfect flux would still average
+respectably, but the geometric mean drags the whole product down. One
+disqualifying property should disqualify the planet, and a geometric mean
+enforces that.
+
+**b. Habitable-zone membership** (`0.4 + 0.6 × in_hz`) — from insolation against
+the conservative zone of 0.25–1.67 S⊕. Inside gives 1.0; below 0.25 falls off
+linearly; above 1.67 falls off faster (being too hot is worse than being too
+cold, since a greenhouse effect can rescue a cold planet but nothing rescues a
+boiled one). Ranges from 0.4 to 1.0, so it can penalise heavily but never zero
+the score alone.
+
+**c. Orbital proximity** (`0.7 + 0.3 × hz_proximity`) — from orbital distance
+against the star-type-specific boundaries in [Section 4](#4-what-habitable-means-here).
+Only a 30% modulator. Its real job is to make **orbital period actually matter**:
+if `pl_orbsmax` is missing it is derived from `pl_orbper` via Kepler's third law,
+`a³ = M × P²`.
+
+**d. Stellar factor** — a direct multiplier from `get_stellar_type_factor()`:
+
+| Type | Factor | Reasoning |
+|---|---|---|
+| G (Sun-like) | 1.00 | The reference. Stable, ~10 Gyr lifetime |
+| K (orange) | 0.95 | Arguably superhabitable — longer-lived, less UV |
+| F (yellow-white) | 0.85 | More UV, ~3 Gyr lifetime |
+| M (red dwarf) | 0.70 | Flares and probable tidal locking |
+| A | 0.60 | Hot, short-lived |
+| B | 0.30 | Very hot |
+| O | 0.10 | Extremely hot, lives only a few Myr |
+
+M-dwarfs at 0.7 reflects *statistical risk*, not impossibility — Proxima
+Centauri b orbits an M-dwarf and is among the most studied candidates anywhere.
+
+### Classification thresholds
+
+The final score maps to a label:
+
+| Score | Class |
+|---|---|
+| ≥ 0.66 | POTENTIALLY_HABITABLE |
+| 0.30 – 0.65 | HABITABILITY_ZONE |
+| < 0.30 | NON_HABITABLE |
+
+> Older docs listed `0.7 / 0.4` and `0.65 / 0.35`. Both were wrong. The values
+> above are what `habitability_scorer.py` uses.
+
+### What it actually outputs — measured
+
+Run against the current models, these are the real results:
+
+| Planet | Inputs | Score | Class |
+|---|---|---|---|
+| Earth | 1.0 R⊕, 255 K, 1.0 S⊕ | **0.96** | POTENTIALLY_HABITABLE |
+| Mars | 0.53 R⊕, 210 K, 0.43 S⊕ | **0.92** | POTENTIALLY_HABITABLE |
+| Venus | 0.95 R⊕, 232 K, 1.91 S⊕ | **0.74** | POTENTIALLY_HABITABLE |
+| Mercury | 0.38 R⊕, 440 K, 6.67 S⊕ | **0.19** | NON_HABITABLE |
+| Neptune | 3.88 R⊕, 48 K, 0.001 S⊕ | **0.20** | NON_HABITABLE |
+| Hot Jupiter | 11 R⊕, 1200 K, 1000 S⊕ | **0.00** | NON_HABITABLE |
+
+**Mars and Venus both score as potentially habitable. This is not a bug** — and
+you should be ready to explain why, because it looks like one. See
+[Section 13](#13-what-this-system-cannot-do).
+
+### Confidence — read the fine print
+
+The `confidence` field is **not** a confidence in the score. It is the ML model's
+probability for whichever class the *blended* score landed in. Since the blended
+score is 90% physics, the two can disagree badly: physics may say
+POTENTIALLY_HABITABLE while the model gave that class only 5%, and the response
+then reports 5% confidence next to a 0.96 score. Treat it as "how much the ML
+model agrees", not "how sure the system is".
 
 ---
 
-## 10. Frontend Architecture
+## 8. Explainability: SHAP, LIME and the fallback
 
-### Page Structure
+`POST /api/explain/` returns a normal prediction plus a ranked list of which
+features drove it. Implemented in `explain_single()` in `ai_service.py`.
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| Home | `/` | Landing page with mission overview, stats |
-| Explore | `/explore` | **Main page** — search + 3D viewer + planet grid + prediction |
-| Planet Detail | `/planet/:id` | Full planet data + ML prediction + explainability |
-| Compare | `/compare` | Side-by-side comparison of multiple planets |
-| About | `/about` | Project information, team, supervisor |
+### The three-tier cascade
 
-### The Explore Page (Application Heart)
+1. **SHAP** (`TreeExplainer`) — game-theoretic feature attribution, exact for
+   tree models. Preferred, and **verified working** in this environment
+   (SHAP 0.50.0).
+2. **LIME** — used only if SHAP is unavailable or throws. Perturbs the input and
+   fits a simple local model around it.
+3. **Physics fallback** — if both fail, a hand-written explanation derived from
+   the physics factors. Never a model attribution, but always something.
+
+Both SHAP and LIME are **lazily imported** with `BaseException` catches. They are
+heavy and historically unstable, and a failed import must not take down the API.
+The response always names which tier was used in `explanation_method`.
+
+Raw feature names are mapped to readable labels (`pl_rade` → "Planet Radius")
+and filtered to a human-relevant subset, so users never see 270 raw columns.
+
+### Interpreting the output
+
+For an Earth-like input the top SHAP features are typically Temperature
+Similarity, Flux Similarity and Orbit in Stellar Radii — reassuring, because
+those are exactly the properties that should matter. If radius or star mass ever
+dominated for an Earth-like planet, something would be wrong.
+
+> **A caveat worth stating.** SHAP explains the **ML model's** decision, which is
+> only 10% of the final score. It does not explain the physics term that
+> actually drove 90% of the number. The `contributing_factors` block in the
+> response is what breaks down the physics side.
+
+---
+---
+
+# Part 4 — The Code, File by File
+
+## 9. Repository map
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│ NAVBAR                                                      │
-├────────────────────────────────────────────────────────────┤
-│ SEARCH BAR (sticky)                                        │
-├─────────────────┬───────────────────────┬──────────────────┤
-│ FILTERS PANEL   │  EXOPLANET 3D VIEWER  │  PLANET GRID     │
-│ (col 3/12)      │  (col 5/12)           │  (col 4/12)      │
-│                 │  • Real planets from  │  • 30 per page   │
-│ • Mission       │    current filters    │  • Habitability  │
-│ • Habitability  │  • Open→ full screen  │    class badges  │
-│ • Radius range  │    (28 planets shown) │  • Click → detail│
-│ • Temp range    │  • Planet labels,     │                  │
-│ • Min ESI       │    HZ ring, orbit     │                  │
-└─────────────────┴───────────────────────┴──────────────────┤
-│ PREDICTION PANEL (always visible)                          │
-│ • 7 parameter sliders → Real-time prediction               │
-│ • SHAP/LIME explanation                                    │
-│ • Classification + score gauge                             │
-└────────────────────────────────────────────────────────────┘
+FYP/
+├── data/            raw NASA CSVs + processed train/val/test splits
+├── notebooks/       7 Jupyter notebooks: cleaning, training, comparison
+├── models/          6 trained .pkl classifiers + evaluation CSVs
+├── artifacts/       per-mission scalers, encoders, feature metadata
+├── backend/         Django REST API
+├── frontend/        React + Vite client
+├── tests/           pytest suite
+├── docs/            FYP report drafts (.docx)
+├── requirements.txt Python dependencies
+├── Procfile         Railway start command
+└── vercel.json      Vercel SPA rewrite
 ```
 
-### 3D Viewers
-
-**ExoplanetViewer3D** — Shows real exoplanets from the database:
-- Fetches up to 28 planets using current filters
-- Sorted: POTENTIALLY_HABITABLE first
-- Each planet is a colored sphere with temperature-driven texture
-- Habitable zone ring (green), orbit paths, star
-- Fullscreen modal with surface zoom, labels, top view
-
-**SolarSystemViewer** — Our solar system:
-- All 8 planets with real orbital periods and sizes
-- Major moons (Galilean, Saturn's, etc.) with correct periods
-- Asteroid belt (3,800 particles), named asteroids (Ceres, Apophis, Bennu, 2024 YR4)
-- Kuiper belt hint
-- **Artemis 2 free-return trajectory** — toggle with checkbox
+**`models/` vs `artifacts/` — do not mix these up.**
+`models/` holds the trained classifiers. `artifacts/` holds the preprocessing
+objects (MinMax scaler, label encoder, feature metadata). A model without its
+matching scaler produces *silently wrong* predictions, not an error.
 
 ---
 
-## 11. How a Prediction Works End-to-End
+## 10. Backend, file by file
 
-### User enters parameters → Score returned
+### `backend/backend/` — project configuration
 
-```
-USER: Enters pl_rade=1.2, pl_eqt=280, pl_insol=0.9, st_teff=5500...
-    ↓
-FRONTEND PredictionPanel.jsx
-POST /api/explain/ { pl_rade:1.2, pl_eqt:280, ... }
-    ↓
-DJANGO predictions/views.py → explain_prediction()
-→ calls ai_service.explain_single()
-    ↓
-HABITABILITY SCORER (backend/api/habitability_scorer.py)
-1. Auto-detect mission from feature keys → "kepler"
-2. Load kepler_xgboost_model.pkl + scaler + metadata
-3. Compute derived features:
-   radius_similarity = 1 - |1.2-1|/10 = 0.98
-   temp_similarity = 1 - |280-255|/500 = 0.95
-   insol_similarity = 1 - |0.9-1|/10 = 0.99
-   in_hz_conservative = (0.25 ≤ 0.9 ≤ 4.0) = 1
-   is_rocky = (1.2 ≤ 2.0) = 1
-   pl_insol_log = log10(0.9) = -0.046
-4. Scale all features with MinMaxScaler
-5. model.predict_proba([...]) → [0.03, 0.05, 0.92]
-6. Composite score = 0.4×0.92 + 0.3×0.97 + 0.2×1.0 + 0.1×0.95 = 0.854
-    ↓
-SHAP TreeExplainer
-→ computes SHAP values for each feature
-→ ranks by |SHAP value| → top contributing features
-→ direction: positive (supports habitability) vs negative (reduces it)
-    ↓
-RESPONSE JSON:
-{
-  "habitability_score": 0.854,
-  "classification": "POTENTIALLY_HABITABLE",
-  "confidence": 0.92,
-  "feature_importance": [
-    { "feature": "Insolation Flux", "importance": 0.34, "impact_direction": "supports" },
-    { "feature": "Temperature Similarity", "importance": 0.28, "impact_direction": "supports" },
-    ...
-  ],
-  "natural_language_explanation": "The planet is classified as Potentially Habitable...",
-  "explanation_method": "shap"
-}
-    ↓
-FRONTEND: Renders score gauge, feature bar chart, explanation text
-```
+**`settings.py`** — everything configurable.
+
+- Database resolution, in order: `DATABASE_URL` → discrete `DB_*` fields →
+  SQLite fallback at `backend/db.sqlite3`.
+  *Limit:* the SQLite fallback is silent. On an ephemeral host you get a working
+  app whose data vanishes on restart, with no warning.
+- `SECRET_KEY` is mandatory when `DEBUG=false` — raises `ImproperlyConfigured`
+  rather than falling back to an insecure default. Good.
+- Security when `DEBUG=false`: SSL redirect, HSTS (1 year, preload), secure
+  cookies, `X_FRAME_OPTIONS=DENY`, nosniff, referrer policy.
+- CORS is origin-scoped; `CORS_ALLOW_ALL_ORIGINS = False`.
+- Throttling: 200/hour anonymous, 1000/hour authenticated.
+- JWT: access token **1 hour**, refresh **7 days**, rotation off.
+- `MODELS_DIR`, `ARTIFACTS_DIR`, `DATA_DIR` point at the project root.
+
+**`urls.py`** — root router. Maps `/api/` → predictions, `/api/planets/` →
+planets, `/api/auth/` → users, `/api/chatbot/` → chatbot, plus `/api/missions/`
+and an info page at `/`.
+
+**`middleware.py`** — 13 lines. Adds a Content-Security-Policy header to HTML
+responses only. *Limit:* JSON responses get no CSP, which is fine since they are
+not rendered as documents.
+
+**`wsgi.py` / `asgi.py`** — standard entry points. Gunicorn uses `wsgi.py`.
 
 ---
 
-## 12. AI Explainability — SHAP & LIME
+### `backend/api/` — the scoring engine
 
-### Why Explainability Matters
+> **Important structural quirk:** `api` is **not** in `INSTALLED_APPS` and its
+> URLs are not routed. It survives purely as an import path —
+> `ai_service.py` does `from api.habitability_scorer import HabitabilityScorer`.
+> Its `views.py`, `models.py`, `urls.py`, `serializers.py` and `admin.py` are
+> **dead code**, superseded by the `predictions` app. Do not add routes here.
 
-For a scientific tool, "the model says 0.85" is not enough. Scientists need to know *why*. Explainability also helps detect model errors (if a nonsensical feature is driving predictions).
+**`habitability_scorer.py`** (~815 lines) — the most important file in the
+project. The `HabitabilityScorer` class:
 
-### SHAP (SHapley Additive exPlanations)
+| Method | Purpose |
+|---|---|
+| `_load_models()` | Loads 3 models + 3 scalers + 3 metadata files at construction |
+| `_get_stellar_type_from_teff()` | Temperature → spectral class (O/B/A/F/G/K/M) |
+| `_derive_orbsmax()` | Kepler's 3rd law: orbital period → semi-major axis |
+| `_compute_derived_features()` | Builds the engineered features the models expect |
+| `calculate_esi_*()` | The three ESI components |
+| `calculate_hz_proximity()` | Distance-to-habitable-zone score |
+| `get_stellar_type_factor()` | Star-quality multiplier |
+| `preprocess_features()` | Assembles + scales the full feature vector |
+| `predict_habitability()` | **The main entry point** — the blend from Section 7 |
+| `explain_prediction()` | Human-readable text summary |
+| `batch_predict()` | Loops `predict_habitability` over a DataFrame |
 
-**What it is:** Based on cooperative game theory (Shapley values). For each feature, SHAP calculates its *marginal contribution* to the prediction, averaged over all possible feature orderings.
-
-**For tree models** (XGBoost/RF): `TreeExplainer` is fast and exact — no approximation needed.
-
-**Output:** A value per feature showing:
-- **Magnitude**: How much this feature moved the prediction from the baseline
-- **Sign**: Positive = pushed toward POTENTIALLY_HABITABLE; Negative = pushed away
-
-**Example output for our system:**
-```
-Feature: Insolation Flux     SHAP=+0.34  (large positive: flux near Earth's)
-Feature: Temperature          SHAP=+0.28  (in good range)
-Feature: Star Temperature     SHAP=+0.12  (G-type star, favorable)
-Feature: Orbital Eccentricity SHAP=-0.08  (slightly too eccentric)
-Feature: Planet Radius        SHAP=+0.06  (rocky size)
-```
-
-### LIME (Local Interpretable Model-agnostic Explanations)
-
-**What it is:** Builds a simple local linear model around the prediction point. Creates a neighborhood of similar inputs by perturbing features, then fits a linear model to understand local behavior.
-
-**When used:** LIME is the fallback if SHAP fails (some model versions have SHAP compatibility issues). LIME is model-agnostic (works with any black-box model).
-
-**Limitation:** LIME is approximate (stochastic), so results may slightly vary between runs.
-
-### Fallback Explainability
-
-If both SHAP and LIME fail, the system falls back to a **physics-based heuristic** that compares each input parameter to Earth's values and ranks them by deviation magnitude. This is always available and never crashes.
+*Limits:*
+- Model load failures are caught and **printed, not raised**. A missing `.pkl`
+  yields a scorer that silently uses fallback probabilities.
+- Any expected feature that cannot be computed becomes `0.0`. After MinMax
+  scaling, `0.0` is not neutral — it is the *minimum* of the training range.
+  Sparse inputs therefore bias predictions in a direction nobody chose.
+- `batch_predict()` mutates the DataFrame passed to it.
+- The module docstring still says `from habitability_scorer import ...`; the real
+  path is `from api.habitability_scorer import ...`.
 
 ---
 
-## 13. Project Phases & Status
+### `backend/planets/` — planet data
 
-### Completed Phases
+**`models.py`** — two Django models.
 
-| Phase | What | Status |
-|-------|------|--------|
-| 1 | Data preprocessing — 9,614 planets, 3 missions | ✅ Complete |
-| 2 | ML models — 3 trained, evaluated, saved as .pkl | ✅ Complete |
-| 3 | Django REST API — all endpoints working | ✅ Complete |
-| 4 | React frontend — all pages implemented | ✅ Complete |
-| 5 | 3D exoplanet viewer (r3f + drei) | ✅ Complete |
-| 6 | Solar system 3D viewer + Artemis 2 trajectory | ✅ Complete |
-| 7 | SHAP + LIME explainability | ✅ Complete |
-| 8 | Neon DB (PostgreSQL) — migrated from SQLite | ✅ Complete |
-| 9 | Auth system — JWT login/signup, saved predictions in Neon DB | ✅ Complete |
-| 10 | ARIA chatbot — Groq Cloud API (Llama 3.3 70B) | ✅ Complete |
+`Mission`: name, full name, description, launch/end dates, `total_planets`.
+Explicit `db_table = 'missions'`.
 
-### Running the Project
+`Exoplanet`: the main table. FK to Mission, `planet_name` (unique, indexed), the
+planet and stellar parameters, `habitability_class`, boolean flags,
+`esi_overall`, `discovery_year`. Explicit `db_table = 'exoplanets'`.
 
-**Backend:**
-```bash
-cd f:/FYP/backend
-# Ensure .env has DB_PASSWORD and GROQ_API_KEY set
-python manage.py runserver
-# Runs on http://localhost:8000
-# Connects to Neon DB (PostgreSQL) automatically
-```
+> **The real table names are `exoplanets` and `missions`**, not
+> `planets_exoplanet` / `planets_mission`. The models override Django's default
+> naming with `db_table`. Earlier documentation got this wrong.
 
-**Frontend:**
-```bash
-cd f:/FYP/frontend
-npm run dev
-# Runs on http://localhost:3000
-# API calls proxy to :8000 via vite.config.js
-```
+*Limit:* nearly every numeric field is nullable, because real survey data has
+gaps. Every consumer must handle `None`.
 
-**No local services needed.** The chatbot (ARIA) calls Groq's cloud API — no Ollama install, no local model download. The database is Neon DB (cloud PostgreSQL) — no local DB server required.
+**`views.py`** — seven function-based endpoints: `planet_list` (filters +
+pagination), `planet_detail`, `habitable_planets`, `planet_stats`,
+`mission_list`, `search_planets`, `compare_planets` (max 10).
 
-**Required environment variables (`backend/.env`):**
-```
-DB_NAME=neondb
-DB_USER=neondb_owner
-DB_PASSWORD=<neon_password>
-DB_HOST=<neon_host>.neon.tech
-DB_PORT=5432
-GROQ_API_KEY=<groq_api_key>
-```
+*Limits:*
+- `planet_list` calls `float()` on filter parameters with **no try/except** — a
+  malformed `?min_radius=abc` raises `ValueError` and returns a 500 rather than
+  a 400.
+- `search_planets` returns at most 50 results with no pagination.
+- Search is `icontains` on name only — no fuzzy matching, no searching by
+  parameter.
 
-### Testing Key Features
-
-1. **Explore page** → adjust filters → 3D viewer updates with matching planets
-2. **Prediction panel** → move sliders → real-time score
-3. **Explain button** → SHAP feature chart appears
-4. **3D viewer fullscreen** → click planet → info panel
-5. **Solar system** → check "Artemis 2 Path" → see free-return trajectory with animated spacecraft
-6. **Chatbot** → ask about any planet or habitability concept
-7. **Compare page** → select 2-4 planets → side-by-side metrics
+**`serializers.py`** — `ExoplanetListSerializer` (lightweight, for grids),
+`ExoplanetDetailSerializer` (`fields = '__all__'`), `MissionSerializer`, plus two
+that are defined but unused for output shaping.
 
 ---
 
-*This guide is the authoritative reference for the AI Exoplanet Habitability Explorer. All ML decisions, feature selections, and system limitations are documented here to support academic review and presentation.*
+### `backend/predictions/` — the prediction API
+
+**`ai_service.py`** (~550 lines) — the service layer between views and the
+scorer.
+
+- Holds the scorer as a **module-level singleton** (`_scorer`), so the `.pkl`
+  files load once per process, not once per request. The first request after a
+  restart is therefore noticeably slower.
+- Lazily imports SHAP and LIME behind `BaseException` guards.
+- `predict_single()`, `predict_batch()`, `explain_single()`,
+  `get_models_info()`, `is_service_available()`.
+- Maps raw feature names to readable labels for the UI.
+
+**`views.py`** — `api_root`, `predict`, `batch_predict`, `explain_prediction`,
+`models_info`, `health_check`. Each checks `is_service_available()` first and
+returns 503 if models are missing.
+
+**`serializers.py`** — `PlanetParametersSerializer` validates every input as
+optional but requires at least one of `pl_rade`, `pl_eqt`, `pl_insol`, `st_teff`.
+`BatchPredictionSerializer` caps a batch at **100 planets**.
+
+**`models.py`** — `PredictionHistory` and `SimulationHistory`.
+
+> **Both are completely unused.** Their tables exist in the database and are
+> **empty (0 rows)**; no view, serializer or script references them. Saved
+> predictions actually live in `users.SavedPrediction`. If the roadmap or a
+> report claims "prediction history" as a delivered feature, that claim needs
+> qualifying — the models exist, the feature does not.
+
+---
+
+### `backend/users/` — auth and saved predictions
+
+**`models.py`** — `UserProfile` (OneToOne with Django's `User`, stores a base64
+profile image in a `TextField`) and `SavedPrediction` (FK to user, `name`,
+`inputs` JSON, `outputs` JSON, `created_at`).
+
+*Limit:* base64 images in a text column bloat every profile query. Fine at 8
+users; not a pattern to scale.
+
+**`views.py`** — `register`, `login`, `me`, `logout`, `saved_predictions`
+(GET/POST), `delete_saved_prediction`. Login accepts username **or** email:
+it tries `authenticate()` directly, then falls back to an email lookup.
+
+> **`logout` does not actually log anyone out.** It calls `token.blacklist()`,
+> but `rest_framework_simplejwt.token_blacklist` is **not** in `INSTALLED_APPS`,
+> so the call raises and is swallowed by a bare `except`. The endpoint always
+> returns 200 and the client simply discards its own tokens. An
+> already-issued refresh token stays valid for its full 7 days. To fix properly:
+> add the blacklist app and run its migrations.
+
+---
+
+### `backend/chatbot/` — ARIA
+
+**`views.py`** — one endpoint. `GET` reports Groq connectivity; `POST` sends a
+message. Tries four model names in order (`llama-3.3-70b-versatile` first) and
+four environment-variable aliases for the key.
+
+> **ARIA has no database access.** All its knowledge is a static `SYSTEM_PROMPT`
+> string. It cannot look up a planet — it can only discuss what was written into
+> its prompt. The dataset figures in that prompt are hard-coded and must be
+> updated by hand when the data changes. (They previously stated the wrong
+> scoring formula and planet counts; both are now corrected.)
+
+Without an API key the endpoint reports unavailable and the widget shows a setup
+hint rather than erroring.
+
+---
+
+### `backend/` — scripts
+
+**`load_data_to_db.py`** — creates the three missions, then loads each processed
+CSV. Idempotent: skips any planet whose name already exists.
+
+Name resolution differs per mission, because the datasets do not share a column:
+
+| Mission | Column used | Example |
+|---|---|---|
+| K2 | `pl_name` | `BD+20 594 b` |
+| Kepler | `kepler_name` → `kepoi_name` | `Kepler-227 b` |
+| TESS | `toi` → `tid`, prefixed | `TOI-1001.01` |
+
+*Limit:* row-by-row `.exists()` checks make a full load slow (thousands of
+queries). Fine as a one-off.
+
+**`backfill_planet_names.py`** — repairs a database loaded before that per-mission
+mapping existed, where 7,677 of 8,245 planets were named `Kepler_planet_0` style
+placeholders. Dry-run by default; `--apply` commits in one transaction using
+batched `bulk_update`. Already applied — the database now has 8,245 distinct real
+names.
+
+**`test_backend_api.py`** — a script (not pytest) that hits a running server.
+
+---
+
+## 11. Frontend, file by file
+
+### Entry and routing
+
+**`main.jsx`** — mounts `<App />`.
+
+**`App.jsx`** — the whole routing table in one `<Routes>` block, wrapped in
+`AuthProvider`. `ScrollToTop` and `Chatbot` sit **outside** the switch so they
+persist across navigation.
+
+| Path | Component |
+|---|---|
+| `/` | Home |
+| `/explore` | ExplorePlanets |
+| `/planets/:id` | PlanetDetail |
+| `/compare` | ComparePlanets |
+| `/learn` | Concepts |
+| `/upload` | Upload |
+| `/about` | About |
+| `/login`, `/signin` | Login, SignIn |
+| `*` | NotFound |
+
+---
+
+### `services/api.js` — every network call
+
+One configured axios instance with two interceptors:
+
+- **Request:** reads `auth_token` from `localStorage`, sets the `Bearer` header.
+- **Response:** on 401, clears stored credentials but deliberately does **not**
+  hard-redirect, so the UI can degrade gracefully.
+
+> `apiClient` is a *separate* axios instance, so `axios.defaults` set elsewhere
+> (as `AuthContext` does) do **not** apply to it. This is why the token is read
+> from `localStorage` on every request. The file comments this explicitly.
+
+`API_BASE` is `VITE_API_URL` or the relative `/api`, with the trailing slash
+normalised.
+
+---
+
+### `context/AuthContext.jsx`
+
+The only shared state in the app. Exposes `user`, `token`, `isLoggedIn`,
+`loading`, `login()`, `logout()`, `updateUser()`. Restores the session from
+`localStorage` on mount.
+
+*Limits:*
+- JWTs in `localStorage` are readable by any XSS on the page. `httpOnly` cookies
+  would be safer; this is the common React tradeoff, worth acknowledging rather
+  than defending.
+- **No token refresh anywhere.** The refresh token is stored but never used. When
+  the 1-hour access token expires the user is simply logged out.
+
+---
+
+### Pages
+
+| File | Lines | Purpose and notes |
+|---|---|---|
+| `Home.jsx` | 467 | Landing page — hero, live stats from `/planets/stats/` |
+| `ExplorePlanets.jsx` | 111 | **Deliberately thin.** Owns filter/search state and composes the children. Put feature logic in the child, not here |
+| `PlanetDetail.jsx` | 671 | One planet + a **live** prediction, so it can disagree with the stored badge |
+| `ComparePlanets.jsx` | 575 | Up to 4 planets, data table + Chart.js radar and bar charts |
+| `Concepts.jsx` | 539 | The `/learn` page — static educational content |
+| `Upload.jsx` | 463 | CSV batch prediction. Validates client-side: `.csv` only, <5 MB, ≥1 row; backend caps at 100 planets |
+| `About.jsx` | 518 | Project and academic context; 3D hero cube |
+| `login.jsx` / `signin.jsx` | 233 / 309 | Auth screens. Lowercase filenames — see below |
+| `NotFound.jsx` | 111 | 404 |
+| `ComingSoon.jsx` | 37 | Placeholder, **not bound to any route** |
+
+> **Filename casing hazard.** `login.jsx` and `signin.jsx` are lowercase while
+> every other page is PascalCase. Windows is case-insensitive, Linux (and Vercel)
+> is not. Renaming needs a two-step `git mv` or the deploy build breaks.
+
+---
+
+### Components
+
+**3D (React Three Fiber)**
+
+| File | Lines | Notes |
+|---|---|---|
+| `ExoplanetViewer3D.jsx` | 1,235 | The main viewer. Largest file in the codebase |
+| `SolarSystemViewer.jsx` | 1,244 | Solar System scene, **opened from inside** the 3D viewer modal, not a route |
+| `AboutHeroCube.jsx` | 142 | Rotating cube on About |
+
+`ExoplanetViewer3D` internals:
+
+```
+ExoplanetViewer3D              state, fetching, modal control
+├── PreviewScene               4 demo planets, auto-rotating
+└── Fullscreen modal
+    ├── Header controls        Labels · HZ Ring · Top View · Surface · Rotate · Reset
+    ├── StatsBar               counts per habitability class
+    └── OrbitalScene           real API data
+        ├── CentralStar        colour by temperature + habitable-zone ring
+        ├── Stars              drei starfield, 12,000 points
+        ├── OrbitPath × N      256 points per orbit
+        └── OrbitalPlanet × N  textures, gas-giant rings, labels
+```
+
+Behaviour to know before editing:
+- **Capped at 28 planets** for 60 fps, sorted POTENTIALLY_HABITABLE →
+  HABITABILITY_ZONE → NON_HABITABLE.
+- Refetches **when the modal opens**. Changing a filter with the modal already
+  open does not live-update it — close and reopen.
+- It is a *comparative* view: planets from different star systems are drawn
+  around one synthetic star whose colour and HZ come from the mean `st_teff` of
+  whatever is on screen. **It is not a real star system.** Say this before
+  anyone asks.
+- Textures by temperature: frozen <180 K, ice <250 K, lava >900 K, gas giant
+  >3.5 R⊕, else Earth-like.
+- Auto-rotate and manual drag conflict; an `interactingRef` flag on
+  `OrbitControls` `onStart`/`onEnd` suppresses auto-rotate mid-drag. Preserve it.
+
+**Other components**
+
+| File | Purpose |
+|---|---|
+| `PredictionPanel.jsx` (817) | The prediction studio — 7 sliders, **8 solar-system presets**, live score, factor breakdown, SHAP explanation, save-to-account |
+| `PlanetGrid.jsx` (216) | Paginated cards, 12 per page, "Load More" |
+| `PlanetCard.jsx` (189) | One planet summary |
+| `SearchBar.jsx` (199) | Debounced typeahead |
+| `FiltersPanel.jsx` (291) | Mission, class, radius/temp ranges, `hide_incomplete` |
+| `Navbar.jsx` (289) | Navigation, auth state, avatar menu |
+| `Footer.jsx` (250) | Links and credits |
+| `ScrollToTop.jsx` (31) | Scroll reset on route change; renders nothing |
+| `Chatbot.jsx` (448) | ARIA widget; probes `/api/chatbot/` on mount |
+
+The presets are Earth, Venus, Mars, Mercury, Jupiter, Saturn, Uranus and Neptune.
+The Venus preset carries an on-screen disclaimer explaining that it uses
+equilibrium temperature (232 K), not the 737 K surface — exactly the limitation
+described in [Section 13](#13-what-this-system-cannot-do).
+
+---
+
+### `utils/` — currently dead code
+
+| File | Lines | Status |
+|---|---|---|
+| `helpers.js` | 271 | ~19 formatting/validation helpers — **imported nowhere** |
+| `mockData.js` | 500 | Offline sample data — **imported nowhere** |
+
+Both are leftovers from early development; components inline their own
+formatting instead. They are harmless but they are 771 lines of code that will
+mislead a reader into thinking they are load-bearing. Either wire `helpers.js`
+up or delete both.
+
+---
+---
+
+# Part 5 — Reality Checks
+
+## 12. A prediction, traced end to end
+
+A user drags the sliders to Earth values and clicks Predict.
+
+**1. Browser** — `PredictionPanel.jsx` calls `predictHabitability(params)`:
+
+```json
+{ "pl_rade": 1.0, "pl_eqt": 255, "pl_insol": 1.0, "pl_orbper": 365,
+  "st_teff": 5778, "st_rad": 1.0, "st_mass": 1.0 }
+```
+
+**2. axios** — `services/api.js` POSTs to `/api/predict/`, attaching a Bearer
+token if one exists. Vite proxies to `localhost:8000`.
+
+**3. Django routing** — `backend/urls.py` → `predictions/urls.py` → `predict()`.
+
+**4. Guard** — `is_service_available()`; 503 if the models are not loaded.
+
+**5. Validation** — `PlanetParametersSerializer` checks types and ranges and
+requires at least one key parameter.
+
+**6. Service** — `ai_service.predict_single()` gets the singleton scorer.
+
+**7. Mission detection** — `get_mission_from_features()` counts overlap between
+the supplied keys and each mission's feature list. For this standard `pl_*` set
+it selects **K2**.
+
+**8. Feature engineering** — `_compute_derived_features()` builds the similarity
+terms, HZ flags, size flags, log transforms and ratios; anything still missing
+becomes `0.0`. The result is ordered to match `metadata['feature_names']`
+exactly.
+
+**9. Scaling** — the mission's MinMax scaler transforms the vector. Column order
+is the contract; a mismatch here corrupts everything downstream silently.
+
+**10. ML prediction** — `predict_proba` returns probabilities in alphabetical
+class order. `ml_score = 0.583`.
+
+**11. Physics** — similarity terms ≈ 1.0 each; inside the HZ; good orbital
+proximity; G-type star factor 1.0. `physics_score = 1.0`.
+
+**12. Blend** — `0.10 × 0.583 + 0.90 × 1.0 = 0.958`.
+
+**13. Classify** — `0.958 ≥ 0.66` → **POTENTIALLY_HABITABLE**.
+
+**14. Response** — score, classification, confidence, the three probabilities,
+ESI components, and the full `contributing_factors` breakdown.
+
+**15. Render** — the panel animates the score, colours it green, and lists the
+factors. A logged-in user can name and save it to `users_savedprediction`.
+
+---
+
+## 13. What this system cannot do
+
+Be upfront about all of this. Every item is a consequence of the input data, not
+of poor engineering — and saying so clearly is far more convincing than hoping
+nobody asks.
+
+### It cannot tell Earth from Venus or Mars
+
+The demonstration, measured on the current models:
+
+| Planet | Score | Class |
+|---|---|---|
+| Earth | 0.96 | POTENTIALLY_HABITABLE |
+| Mars | 0.92 | POTENTIALLY_HABITABLE |
+| Venus | 0.74 | POTENTIALLY_HABITABLE |
+
+Mars is a frozen desert with a near-vacuum atmosphere. Venus's surface is 737 K
+and rains sulphuric acid. Both score as potentially habitable.
+
+**Why:** the scorer sees equilibrium temperature. Venus's equilibrium temperature
+is 232 K — perfectly reasonable. Its actual 737 K surface comes from a runaway
+greenhouse effect that transit photometry cannot detect. Feed the scorer Venus's
+*real* surface temperature of 737 K and it correctly returns **0.27,
+NON_HABITABLE** — the model is right, it is just never given that number,
+because for a real exoplanet nobody has it.
+
+This is the honest headline: **the system separates "physically plausible" from
+"obviously hostile". It cannot separate Earth from Venus, because the input data
+cannot either.**
+
+### It cannot detect atmospheres, oxygen, or biosignatures
+
+Transit photometry measures how much starlight a planet blocks. Atmospheric
+composition needs transmission spectroscopy — JWST-class instruments. Fewer than
+50 exoplanets have any atmospheric characterisation at all; this dataset has zero
+atmospheric columns.
+
+### It cannot detect life
+
+No dataset of orbital and radius measurements can. The system scores conditions
+that are *compatible* with life as we know it.
+
+### It cannot assess geology, magnetic fields, or tidal locking
+
+A magnetic field protects an atmosphere from stellar wind; plate tectonics
+regulate long-term climate. Both matter enormously for real habitability. Neither
+is in any exoplanet catalogue.
+
+### It cannot confirm water
+
+Being in the habitable zone means water *could* be liquid **if** water is present
+**and** there is enough atmospheric pressure. Neither is known.
+
+### Further caveats
+
+- **TESS candidates are not all real planets.** "TOI" means TESS Object of
+  Interest — some are eclipsing binaries mimicking transits. Some training rows
+  may not be planets.
+- **Single-epoch data.** Measurements carry uncertainties; models were trained on
+  central values only, never on error bars.
+- **Missing data is not neutral.** Absent features become `0.0`, which after
+  MinMax scaling means the *minimum* of the training range, not "unknown".
+  Sparse planets are pushed toward NON_HABITABLE by construction.
+
+### How the design mitigates this
+
+1. Physics carries 90% of the score, reducing dependence on the weakest models.
+2. Three mission-specific models prevent one mission's bias dominating.
+3. SHAP/LIME expose which features drove each result.
+4. The UI surfaces the factor breakdown rather than a bare number.
+5. The Venus preset ships with an explicit on-screen disclaimer.
+
+---
+
+## 14. Known problems and rough edges
+
+An honest list. Nothing here is hidden.
+
+### Deployment
+
+**The Railway backend is not running.** `exoplanet-production-d030.up.railway.app`
+returns `404 Application not found`. The Vercel frontend responds but has no API
+behind it, so the deployed site cannot load planets or predict. Everything works
+locally against Neon. Redeploy the backend, then update `VITE_API_URL` in Vercel
+and add the new origin to `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS`.
+
+### Dependency drift
+
+`requirements.txt` and the working environment disagree substantially:
+
+| Package | Pinned | Installed |
+|---|---|---|
+| Python | 3.11.7 (`runtime.txt`) | 3.13.1 |
+| Django | 5.0.1 | **6.0** |
+| DRF | 3.14.0 | 3.16.1 |
+| XGBoost | 2.0.3 | **3.1.2** |
+| scikit-learn | 1.8.0 | 1.7.2 |
+| SHAP | 0.44.1 | 0.50.0 |
+| numpy | 1.26.4 | 2.3.5 |
+
+The `.pkl` models were produced by the **installed** versions, and pickled
+estimators are not guaranteed to load across major library versions. A clean
+`pip install -r requirements.txt` might not be able to load them. Everything in
+this guide was verified against the installed versions. Before trusting the pins
+for a deploy, install them into a fresh virtualenv and run `pytest`.
+
+### Code
+
+| Issue | Detail |
+|---|---|
+| `PredictionHistory` / `SimulationHistory` | Models and tables exist, 0 rows, referenced nowhere |
+| `backend/api/` views and URLs | Dead code; the app is not installed, only imported from |
+| `utils/helpers.js`, `utils/mockData.js` | 771 lines, imported nowhere |
+| `/api/auth/logout/` | Cannot revoke tokens; blacklist app not installed |
+| No token refresh | Refresh token stored but never used; users drop at 1 hour |
+| `planet_list` filter parsing | Bad numeric query param raises `ValueError` → 500 instead of 400 |
+| Silent ML fallback | If a model fails, the API returns a normal-looking score with no warning |
+| Bundle size | One ~1.87 MB JS chunk (~547 kB gzipped); `React.lazy` around the 3D viewers is the fix |
+| ESLint | 46 pre-existing problems (mostly unused imports) |
+| `login.jsx` / `signin.jsx` | Lowercase filenames; case-sensitivity hazard on Linux builds |
+| `backend/db.sqlite3` | 2.6 MB dev database committed to git |
+
+### Test coverage
+
+`pytest` passes 12/12, but be precise about what it covers. Despite its name,
+`tests/test_habitability_scorer.py` **does not test `HabitabilityScorer` at
+all** — it tests the raw pickled classifiers: that they load, that probabilities
+sum to 1, that a known habitable sample and a hot Jupiter classify correctly, and
+that Kepler's accuracy is ≥85%. The other two missions are only checked for
+loadability.
+
+**The entire hybrid scoring layer — the blend, the thresholds, the ESI maths —
+has no automated tests.** Change a weight and nothing fails.
+
+---
+
+## 15. Questions you should be ready for
+
+**"Your models report 100% accuracy. Isn't that overfitting?"**
+The figures are weighted across three classes on data that is over 95%
+NON_HABITABLE — always answering "not habitable" would already score about 97%.
+The per-class report tells the real story: F1 for the habitable class is 0.00 on
+K2 and 0.50 on TESS, on test splits containing 1–2 positive samples. Those
+numbers are statistically meaningless in either direction. That weakness is
+exactly why the production score weights the ML output at only 10%.
+
+**"Why is machine learning only 10% of the score?"**
+Because it is the least trustworthy component. Trained on a distribution where
+under 1% of planets are habitable, the classifier's safest strategy is to reject
+everything. Physics-based similarity is calibrated and interpretable, so it
+carries the decision and ML contributes a supporting signal.
+
+**"Then why use ML at all?"**
+It captures multi-feature interactions no hand-written formula encodes, it
+supplies the class probabilities that SHAP explains, and the comparison between
+the ML and physics terms is itself diagnostic — large disagreements flag unusual
+planets.
+
+**"Your system says Mars and Venus are potentially habitable."**
+Correct, and it is the clearest illustration of the project's central limitation.
+Both are scored on *equilibrium* temperature, which ignores atmospheres. Venus's
+equilibrium temperature is a reasonable 232 K; its 737 K surface comes from a
+greenhouse effect that transit photometry cannot measure. Give the scorer 737 K
+and it returns 0.27, NON_HABITABLE. The system correctly identifies *physical
+plausibility*; distinguishing Earth from Venus requires spectroscopy the data
+does not contain.
+
+**"Why 8,245 planets when your report says 9,614?"**
+9,614 is the processed CSV row count and the training-set size. 8,245 is unique
+planets in the database. The NASA archive stores one row per literature
+reference, so K2's 1,937 rows describe only 568 distinct planets; the loader
+de-duplicates on name.
+
+**"Why three models instead of one?"**
+The missions do not share a feature space — K2 gives 270 usable features, Kepler
+130, TESS 44. A single model could only use the intersection, discarding most of
+what Kepler and K2 measured.
+
+**"What happens when data is missing?"**
+Missing features default to `0.0`. Be honest that this is a real weakness: after
+MinMax scaling, `0.0` is the minimum of the training range, not a neutral value,
+so sparse planets are biased toward NON_HABITABLE. Semi-major axis is a better
+case — it is properly derived from orbital period via Kepler's third law rather
+than defaulted.
+
+**"Is this deployed?"**
+The frontend is live on Vercel and the database on Neon, but the Railway backend
+is currently down, so the public site cannot fetch data. The full stack runs
+correctly locally. (Fix this before a demo, or demo locally.)
+
+**"What would you do next?"**
+Redeploy the backend and reconcile `requirements.txt` with the environment the
+models were trained in. Add tests for the scoring layer, which has none. Use
+planetary mass where available to derive density and separate rock from gas.
+Remove the dead code. Longer term, incorporate JWST atmospheric data as it
+becomes available — that is the only path to distinguishing Earth from Venus.
+
+---
+
+## Appendix: where to verify each claim
+
+| Claim | Verify in |
+|---|---|
+| Scoring formula and thresholds | `backend/api/habitability_scorer.py`, `calculate_habitability_score()` |
+| ESI formulas | Same file, `calculate_esi_radius/temperature/flux()` |
+| HZ boundaries, stellar factors | Same file, `hz_boundaries`, `get_stellar_type_factor()` |
+| Planet counts | `SELECT COUNT(*) FROM exoplanets;` → 8,245 |
+| Class distribution | `artifacts/<mission>/<mission>_habitability_metadata.pkl` → `class_distribution` |
+| Model metrics | `models/best_models_summary.csv`, `models/model_evaluation_report.csv` |
+| API routes | `backend/backend/urls.py` and each app's `urls.py` |
+| JWT lifetimes | `backend/backend/settings.py`, `SIMPLE_JWT` |
+| Frontend routes | `frontend/src/App.jsx` |
+| Batch limit (100) | `backend/predictions/serializers.py` |
+| Upload limits (5 MB) | `frontend/src/pages/Upload.jsx` |

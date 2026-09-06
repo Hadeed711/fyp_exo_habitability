@@ -10,7 +10,7 @@ are no class components and no prop-types layer.
 | Component | Lines | Purpose |
 |---|---|---|
 | `ExoplanetViewer3D.jsx` | ~1,235 | The main orbital viewer. Preview canvas plus a fullscreen modal rendering up to 28 real planets around a shared central star |
-| `SolarSystemViewer.jsx` | ~1,244 | Standalone Solar System scene used for orientation and comparison |
+| `SolarSystemViewer.jsx` | ~1,244 | Solar System scene. Opened from a button **inside** the `ExoplanetViewer3D` modal — it is not bound to any route |
 | `AboutHeroCube.jsx` | ~142 | Rotating 3D cube on the About page hero |
 
 `ExoplanetViewer3D` is the largest component in the codebase. Its internal tree:
@@ -88,6 +88,13 @@ degrades to a setup hint when `GROQ_API_KEY` is missing, rather than erroring.
 - **3D work** must run inside a `<Canvas>`. Never call R3F hooks (`useFrame`,
   `useThree`) from a component rendered outside one.
 - **Loading and error states** are required for anything async.
+
+## Unused modules
+
+`../utils/helpers.js` (271 lines of formatting and validation helpers) and
+`../utils/mockData.js` (500 lines of offline sample data) are **imported
+nowhere**. Components inline their own formatting instead. They are harmless
+but misleading to a reader — either wire `helpers.js` up or delete both.
 
 ## Performance notes
 

@@ -184,21 +184,23 @@ GET  /api/health/                      // API health check
 
 ---
 
-### ⬅️ **CURRENT PHASE: Frontend Development**
+> 📘 **HISTORICAL SECTION — Phases 4 to 9 below are the original build
+> instructions, kept as a record of how the project was planned and executed.
+> All of this work is complete. They are NOT a to-do list. For what the system
+> actually does today, read
+> [PROJECT_UNDERSTANDING_GUIDE.md](./PROJECT_UNDERSTANDING_GUIDE.md); for what
+> remains, see [Remaining Work](#-remaining-work) at the end of this file.**
 
-## 🎯 Phase 4: Frontend UI Development (Module 4)
+## 🎯 Phase 4: Frontend UI Development (Module 4) — ✅ COMPLETE
 
 **Goal**: Build React components based on Figma design and connect to backend API
 
-**Current State**:
-- ✅ React + Vite + Tailwind CSS setup complete
-- ✅ Project structure created
-- ✅ Home page complete with animations
-- ⬅️ **NOW**: Build Explore, Compare, About pages
+**Outcome**: All pages shipped — Home, Explore, Planet Detail, Compare, Learn,
+Upload, About, Login, Sign-in and a 404 route.
 
 ---
 
-### Step 4.2: Build Explore Page (PRIMARY FOCUS) ⬅️
+### Step 4.2: Build Explore Page (PRIMARY FOCUS) — ✅ done
 
 The Explore page is the **backbone of the entire project**. It combines:
 - Search & Filters
@@ -327,10 +329,10 @@ Interactions:
 - Hover: Elevate card, show glow
 - Click card: Navigate to /planets/{id}
 - Click anywhere on card → Select in 3D viewer
-- Habitability color coding:
-  • Green (>0.7) - High
-  • Yellow (0.4-0.7) - Medium
-  • Red (<0.4) - Low
+- Habitability color coding (thresholds per habitability_scorer.py):
+  • Green  (>= 0.66)     - POTENTIALLY_HABITABLE
+  • Yellow (0.30 - 0.65) - HABITABILITY_ZONE
+  • Red    (< 0.30)      - NON_HABITABLE
 ```
 
 **6. OrbitalViewer3D Component**
@@ -1280,10 +1282,14 @@ Slide 25: Q&A
 - ✅ Week 3-4: ML model training and evaluation
 - ✅ Week 5: Backend API development (98% complete)
 
-### ⬅️ **CURRENT** (Week 6):
-- 🔄 Frontend React setup ✅
-- 🔄 Home page complete ✅
-- → **Building Explore page components**
+### ✅ **COMPLETED** (Weeks 6-10):
+- ✅ Frontend React setup
+- ✅ All pages built, including the Explore page and both 3D viewers
+- ✅ Authentication and saved predictions
+- ✅ Frontend deployed to Vercel; database live on Neon
+
+> The week-by-week schedule below is the original plan, kept for the report's
+> methodology section. It has been fully executed.
 
 ### 📅 **UPCOMING SCHEDULE:**
 
@@ -1438,16 +1444,14 @@ Days 6-7: Practice presentation, refinements
    - Not separate pages for each feature
 
 2. **Navigation Pages (From Figma):**
-   - Home (✅ Complete)
-   - Explore (⬅️ Building now)
-   - Compare (Next)
-   - About (Next)
+   - Home (✅), Explore (✅), Planet Detail (✅), Compare (✅)
+   - Learn / Concepts (✅), Upload (✅), About (✅)
+   - Login + Sign-in (✅), 404 (✅)
 
-3. **Backend is 98% Complete**
-   - All APIs working
-   - Database populated
-   - ML models integrated
-   - Just needs frontend to connect
+3. **Backend is Complete**
+   - All APIs working and documented in [README.md](./README.md#api-reference)
+   - Database populated — 8,245 unique planets on Neon
+   - ML models integrated via a singleton scorer
 
 4. **3D Visualization Location:**
    - Primary: Explore page (orbital system view)
@@ -1519,15 +1523,18 @@ Days 6-7: Practice presentation, refinements
 
 ---
 
-## 🤔 KEY QUESTIONS TO RESOLVE
+## ✅ QUESTIONS RESOLVED
 
-Before proceeding, clarify these with your supervisor or team:
+These were open at planning time. All are now settled:
 
-1. **User Authentication**: Do you need login/register functionality?
-2. **Upload Feature**: What data upload feature is needed?
-3. **AI Explainability**: Is "Why this score?" feature required?
-4. **Timeline**: When is FYP submission deadline?
-5. **Presentation**: When is final presentation?
+1. **User Authentication** — Yes. Implemented: JWT register/login/me/logout plus
+   per-user saved predictions.
+2. **Upload Feature** — Yes. CSV batch prediction at `/upload`, capped at 100
+   planets per request.
+3. **AI Explainability** — Yes. `POST /api/explain/` with a SHAP → LIME →
+   physics-fallback cascade, surfaced in the prediction panel.
+4. **Timeline / Presentation** — Scheduling questions for the supervisor, not
+   engineering work.
 
 ---
 
@@ -1575,14 +1582,17 @@ You're in a **great position**! Here's what you have:
 - Frontend setup done ✓
 - Home page complete ✓
 
-⬅️ **Current Focus:**
-- **Build Explore page** (the heart of your project)
-- This is where everything comes together
-- Once this is done, rest will be easier
+✅ **Also Complete:**
+- Explore page — filters, 3D viewer, planet grid and prediction studio in one
+- Compare, Planet Detail, Learn, Upload and About pages
+- Authentication, saved predictions, ARIA chatbot
+- 3D orbital viewer and Solar System viewer
 
-🎯 **Clear Path Forward:**
-- Follow the component-by-component breakdown in this roadmap
-- Test each component as you build
+🎯 **What Is Left:**
+- Redeploy the Railway backend (currently returning 404)
+- Reconcile `requirements.txt` with the environment the models were trained in
+- Write the FYP report, slides and demo video
+- See [Remaining Work](#-remaining-work) for the full list
 - Connect to backend API step-by-step
 - Polish with Tailwind CSS
 
@@ -1658,3 +1668,42 @@ Copy this to track your progress:
 ---
 
 **Good luck with your FYP! 🚀🪐**
+
+---
+
+## 📌 REMAINING WORK
+
+Everything below is what is genuinely outstanding, verified against the code and
+the live services on 1 September 2026. Everything else in this file is history.
+
+### Blocking for a live demo
+
+| Item | Detail |
+|---|---|
+| **Backend is down** | `exoplanet-production-d030.up.railway.app` returns `404 Application not found`. The Vercel frontend is up but has no API behind it. Redeploy, then set `VITE_API_URL` in Vercel and add the new origin to `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS`. Until then, demo locally. |
+
+### Should fix before submission
+
+| Item | Detail |
+|---|---|
+| Dependency drift | `requirements.txt` pins Django 5.0.1 / XGBoost 2.0.3 / Python 3.11; the environment that produced the `.pkl` models runs Django 6 / XGBoost 3.1.2 / Python 3.13. Pickles are not guaranteed to load across major versions. Install the pins into a clean virtualenv and run `pytest` before trusting them. |
+| No tests for the scoring layer | `pytest` covers the raw classifiers only. The `0.10 × ML + 0.90 × physics` blend, the thresholds and the ESI maths have zero automated coverage. |
+| Dead code | `PredictionHistory` / `SimulationHistory` models (0 rows, unreferenced), the whole `backend/api/` views/urls layer, and `frontend/src/utils/{helpers,mockData}.js` (771 lines, imported nowhere). |
+| `/api/auth/logout/` | Cannot revoke tokens — `token_blacklist` is not in `INSTALLED_APPS`. Add it and migrate, or document the endpoint as client-side only. |
+| No token refresh | The refresh token is stored but never used; users are dropped after the 1-hour access token expires. |
+
+### Nice to have
+
+| Item | Detail |
+|---|---|
+| Bundle size | One ~1.87 MB JS chunk. `React.lazy` around `ExoplanetViewer3D` and `SolarSystemViewer` is the highest-leverage fix. |
+| Filter validation | A malformed numeric query param on `/api/planets/` raises `ValueError` → 500 instead of 400. |
+| ESLint | 46 pre-existing problems, mostly unused imports. |
+| Planet mass | `pl_masse` is stored but unused as a feature. Where available it gives density, which separates rock from gas. |
+
+### Phase 10 — documentation and report
+
+- ✅ Code documentation — every README in Step 10.1 now exists
+- ⬜ FYP final report (60-80 pages)
+- ⬜ Presentation slides (20-25)
+- ⬜ Demo video (5-10 minutes)

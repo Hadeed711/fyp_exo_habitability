@@ -3,10 +3,10 @@
 > An AI-powered full-stack web application that predicts and visualises the habitability of exoplanets discovered by NASA's Kepler, K2, and TESS missions — combining mission-specific machine learning models with an interactive 3D orbital viewer.
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-5%20%7C%206-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
-[![Deployed on Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel)](https://vercel.com/)
+[![Frontend on Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel)](https://vercel.com/)
 
 ---
 
@@ -39,9 +39,9 @@ The Exoplanet Habitability Explorer processes 8,245 exoplanet candidates from th
 |---|---|
 | **3D Orbital Viewer** | Real-time WebGL visualisation using React Three Fiber; temperature-driven textures, gas giant rings, habitable zone indicator |
 | **Habitability Prediction Studio** | Adjust 7 planetary/stellar parameters via sliders and get an instant ML-backed habitability score with factor breakdown |
-| **Planet Comparison** | Select up to 4 exoplanets for side-by-side comparison with a data table and radar/bar charts |
+| **Planet Comparison** | Select up to 4 exoplanets for side-by-side comparison with a data table plus Chart.js radar and bar charts |
 | **Explore & Filter** | Browse all 8,245 planets with filters by mission, habitability class, and free-text search |
-| **ARIA Chatbot** | Groq-powered (Llama 3.3 70B) conversational assistant with full dataset knowledge |
+| **ARIA Chatbot** | Groq-powered (Llama 3.3 70B) assistant. Dataset facts are baked into its system prompt — it has no live database access |
 | **Saved Predictions** | Authenticated users can save, name, and reload custom habitability predictions |
 | **Batch Upload** | Submit a CSV of custom planet parameters for batch ML prediction |
 
@@ -64,23 +64,42 @@ The Exoplanet Habitability Explorer processes 8,245 exoplanet candidates from th
 | Lucide React | 0.575 | Icons |
 
 ### Backend
-| Library | Version | Purpose |
-|---|---|---|
-| Django | 5.0 | Web framework |
-| Django REST Framework | 3.14 | REST API |
-| SimpleJWT | 5.3 | JWT authentication |
-| django-cors-headers | 4.3 | CORS handling |
-| XGBoost | 2.0 | ML classifier (Kepler, K2) |
-| scikit-learn | 1.8 | ML classifier (TESS), preprocessing |
-| SHAP | 0.44 | Model explainability |
-| LIME | 0.2 | Local model interpretation |
-| psycopg2 | 2.9 | PostgreSQL driver |
-| Gunicorn + WhiteNoise | — | Production serving |
+| Library | `requirements.txt` pin | Installed locally | Purpose |
+|---|---|---|---|
+| Django | 5.0.1 | **6.0** | Web framework |
+| Django REST Framework | 3.14.0 | **3.16.1** | REST API |
+| SimpleJWT | 5.3.1 | 5.3.1 | JWT authentication |
+| django-cors-headers | 4.3.1 | **4.9.0** | CORS handling |
+| XGBoost | 2.0.3 | **3.1.2** | ML classifier (Kepler, K2) |
+| scikit-learn | 1.8.0 | **1.7.2** | ML classifier (TESS), preprocessing |
+| SHAP | 0.44.1 | **0.50.0** | Model explainability |
+| LIME | 0.2.0.1 | 0.2.0.1 | Local model interpretation |
+| numpy / pandas | 1.26.4 / 2.2.0 | **2.3.5 / 2.3.3** | Numerics |
+| psycopg2-binary | 2.9.9 | 2.9.9 | PostgreSQL driver |
+| Gunicorn + WhiteNoise | 21.2.0 / 6.6.0 | 21.2.0 / **6.12.0** | Production serving |
+
+> ⚠️ **The pins and the working environment have drifted apart.** The local
+> virtualenv runs Python 3.13 with Django 6 and XGBoost 3, while
+> `requirements.txt` pins Python 3.11 (via `runtime.txt`), Django 5.0.1 and
+> XGBoost 2.0.3. The `.pkl` models in `models/` were produced by the installed
+> versions, and pickled estimators are not guaranteed to load across major
+> library versions. Everything documented here was verified against the
+> **installed** versions. Before relying on `requirements.txt` for a fresh
+> deploy, install it into a clean virtualenv and run `pytest` to confirm the
+> models still load.
 
 ### Infrastructure
-- **Database**: Neon (serverless PostgreSQL)
-- **Frontend hosting**: Vercel
+- **Database**: Neon (serverless PostgreSQL) — live, 8,245 planets
+- **Frontend hosting**: Vercel — live at `exoplanet-frontend-seven.vercel.app`
+- **Backend hosting**: Railway — **currently not running** (see below)
 - **AI chatbot**: Groq Cloud API (Llama 3.3 70B)
+
+> **Deployment status.** The Vercel frontend responds, but the Railway backend at
+> `exoplanet-production-d030.up.railway.app` returns
+> `404 "Application not found"`, so the deployed site cannot load planet data or
+> run predictions. Everything works when run locally against Neon. Redeploy the
+> backend, then set `VITE_API_URL` in Vercel to the new URL and add that origin to
+> `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` on the backend.
 
 ---
 
@@ -200,8 +219,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Configure environment variables
-cp backend/.env.example backend/.env   # if the template is present
-# Otherwise create backend/.env by hand — the table below lists every variable.
+cp backend/.env.example backend/.env
+# Then edit backend/.env — the table below lists every variable.
 
 # 5. Run migrations
 cd backend

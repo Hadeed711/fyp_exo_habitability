@@ -99,8 +99,10 @@ on the minority class, nor firm evidence they fail.
 
 This is the direct reason the production score is
 `0.10 × ML + 0.90 × physics` rather than trusting the classifier. The ML term
-contributes a useful nudge; the physics term is what makes Earth-like inputs
-score above 90% and Venus-like inputs below 20%. Full rationale in
+contributes a useful nudge; the physics term is what keeps Earth-like inputs
+above 90% and obviously hostile ones (a hot Jupiter scores 0.00) near zero.
+Note it does not separate Earth from Venus or Mars — measured on the current
+models, Earth 0.96, Mars 0.92, Venus 0.74, all POTENTIALLY_HABITABLE. Full rationale in
 [PROJECT_UNDERSTANDING_GUIDE.md](../PROJECT_UNDERSTANDING_GUIDE.md#7-habitability-scoring-system).
 
 ---
@@ -119,9 +121,13 @@ Models are produced by the training notebooks, one per mission:
 After retraining, verify before deploying:
 
 ```bash
-pytest                  # tests/test_habitability_scorer.py, asserts on held-out splits
+pytest                  # loads every .pkl; asserts accuracy only for Kepler
 python test_models.py   # manual sanity check — see TEST_MODELS_README.md
 ```
+
+Note that `pytest` covers the raw classifiers only. The hybrid scoring layer in
+`backend/api/habitability_scorer.py` has no automated tests, so check a few
+predictions through `/api/predict/` by hand as well.
 
 Scalers and encoders must be regenerated alongside the models. A model paired
 with a stale scaler from `artifacts/` produces silently wrong predictions rather

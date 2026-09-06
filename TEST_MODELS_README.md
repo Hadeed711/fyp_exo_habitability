@@ -93,8 +93,24 @@ pytest              # runs tests/ per pytest.ini
 pytest -v -m smoke  # smoke-marked subset only
 ```
 
-`tests/test_habitability_scorer.py` loads each mission's model against its held-out
-test split and asserts on accuracy and class behaviour.
+Despite its filename, `tests/test_habitability_scorer.py` does **not** exercise
+the `HabitabilityScorer` class or the hybrid scoring formula at all. It tests the
+raw pickled classifiers:
+
+| Test | Covers |
+|---|---|
+| `test_models_exist`, `test_model_loadable` | All six `.pkl` files load and expose `predict` / `predict_proba` |
+| `test_prediction_shape`, `test_prediction_probabilities` | Output shape, valid classes, probabilities sum to 1 |
+| `test_earth_like_planet`, `test_hot_jupiter` | Known-good and known-bad samples from the Kepler test split |
+| `test_minimum_accuracy` | Kepler only — asserts accuracy ≥ 85% |
+| `test_missing_values`, `test_extreme_values` | Kepler model does not crash on NaN or absurd inputs |
+| `test_all_missions` | K2 / Kepler / TESS models load — no accuracy assertion |
+
+**The hybrid scorer has no automated test coverage.** The `0.10 × ML + 0.90 × physics`
+blend, the classification thresholds and the ESI maths in
+`backend/api/habitability_scorer.py` are only checked by hand through
+`/api/predict/` or the prediction panel. Keep that in mind before changing the
+weights — nothing will fail if you break them.
 
 ---
 

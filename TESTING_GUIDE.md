@@ -65,9 +65,8 @@ Navigate to: **http://localhost:3000**
 **Prediction Panel:**
 - [ ] Panel expands/collapses
 - [ ] All 7 sliders work smoothly
-- [ ] "Earth-like" preset loads values
-- [ ] "Mars-like" preset loads values
-- [ ] "Venus-like" preset loads values
+- [ ] Solar-system presets load values (Earth, Venus, Mars, Mercury, Jupiter, Saturn, Uranus, Neptune)
+- [ ] Venus preset shows the equilibrium-temperature disclaimer
 - [ ] "Predict" button shows loading state
 - [ ] Prediction result appears
 - [ ] Habitability score displays (0-100%)

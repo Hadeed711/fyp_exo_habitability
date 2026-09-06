@@ -510,9 +510,23 @@ class HabitabilityScorer:
         ml_score = prob_pot_hab * 1.0 + prob_hz * 0.5 + prob_non_hab * 0.0
 
         # ---------------------------------------------------------------
-        # Physics component: uses same similarity formulas as training features
-        # This ensures Earth (~93%) and Venus (~15%) score correctly,
-        # independent of potential ML model bias toward non-habitable class.
+        # Physics component: uses same similarity formulas as training features.
+        # Anchoring the score to physics keeps it independent of the ML model's
+        # bias toward the non-habitable class (under 1% of training rows are
+        # habitable, so the classifier alone rejects almost everything).
+        #
+        # Reality check on what this can and cannot separate, measured:
+        #   Earth  (1.0 R, 255 K, 1.0 S)   -> 0.96  POTENTIALLY_HABITABLE
+        #   Mars   (0.53 R, 210 K, 0.43 S) -> 0.92  POTENTIALLY_HABITABLE
+        #   Venus  (0.95 R, 232 K, 1.91 S) -> 0.74  POTENTIALLY_HABITABLE
+        #   Hot Jupiter (11 R, 1200 K)     -> 0.00  NON_HABITABLE
+        #
+        # Mars and Venus scoring high is NOT a bug. pl_eqt is equilibrium
+        # temperature, which assumes no atmosphere. Venus's real 737 K surface
+        # comes from a greenhouse effect that transit photometry cannot see
+        # (feed 737 K instead and the score drops to 0.27). This scorer
+        # separates "physically plausible" from "obviously hostile"; it cannot
+        # separate Earth from Venus, because the input data cannot either.
         # ---------------------------------------------------------------
         # Temperature similarity (reference: 255K = Earth equilibrium temp)
         temp_sim = max(0.0, 1.0 - abs(temperature - 255.0) / 500.0) if temperature > 0 else 0.5
@@ -543,9 +557,9 @@ class HabitabilityScorer:
         )
         physics_score = max(0.0, min(1.0, physics_score))
 
-        # Hybrid score: 10% ML probability + 90% physics calibration
-        # Weighting ensures Earth-like params score >90% and Venus-like < 20%
-        # even when the ML model (trained on biased exoplanet distribution) differs.
+        # Hybrid score: 10% ML probability + 90% physics calibration.
+        # The weighting keeps Earth-like parameters above 90% even when the ML
+        # model (trained on a heavily imbalanced distribution) disagrees.
         habitability_score = 0.10 * ml_score + 0.90 * physics_score
         habitability_score = max(0.0, min(1.0, habitability_score))
 
